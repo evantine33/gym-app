@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList, Layers, Copy, Check, UsersRound, TrendingUp } from 'lucide-react'
+import { Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList, Layers, Copy, Check, UsersRound, TrendingUp, BookOpen } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Layout({ children }) {
@@ -29,6 +29,7 @@ export default function Layout({ children }) {
 
   const memberNav = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Workouts' },
+    { to: '/my-programs', icon: BookOpen, label: 'Programs' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/community', icon: Users, label: 'Community' },
     { to: '/messages', icon: Mail, label: 'Messages', badge: unreadDMs },

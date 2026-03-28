@@ -13,6 +13,7 @@ import Profile from './pages/Profile'
 import Programs from './pages/Programs'
 import Members from './pages/Members'
 import Stats from './pages/Stats'
+import MyPrograms from './pages/MyPrograms'
 
 // ─── Route Guard ──────────────────────────────────────────────────────────────
 function AppRoutes() {
@@ -60,6 +61,7 @@ function AppRoutes() {
         <Route path="/members" element={<Members />} />
         <Route path="/stats" element={<Stats />} />
         <Route path="/programs" element={<Programs />} />
+        <Route path="/my-programs" element={<MyPrograms />} />
         <Route path="/community" element={<Community />} />
         <Route path="/messages" element={<DirectMessages />} />
         <Route path="/profile" element={<Profile />} />
