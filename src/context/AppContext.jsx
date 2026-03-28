@@ -163,7 +163,7 @@ const SEED_COMMUNITY = [
     userId: 'coach-1',
     userName: 'Coach Mike',
     initials: 'CM',
-    text: 'Welcome to IronHub! Big week ahead — let\'s get after it 💪',
+    text: 'Welcome to Stretch Collective! Big week ahead — let\'s get after it 💪',
     timestamp: new Date(Date.now() - 3600000 * 5).toISOString(),
   },
   {

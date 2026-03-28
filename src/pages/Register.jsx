@@ -32,9 +32,9 @@ export default function Register() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
           <div className="w-14 h-14 bg-orange-500 rounded-2xl flex items-center justify-center mb-2">
-            <Dumbbell className="w-8 h-8 text-white" />
+            <span className="text-white font-black text-lg tracking-tight">SC</span>
           </div>
-          <h1 className="text-2xl font-bold">Join IronHub</h1>
+          <h1 className="text-2xl font-black uppercase tracking-wide">Join <span className="text-orange-500">Stretch Collective</span></h1>
           <p className="text-gray-400 text-sm mt-1">Create your member account</p>
         </div>
 

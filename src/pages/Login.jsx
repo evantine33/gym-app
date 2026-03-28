@@ -38,11 +38,12 @@ export default function Login() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mb-3">
-            <Dumbbell className="w-9 h-9 text-white" />
+          <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center mb-4">
+            <span className="text-white font-black text-xl tracking-tight">SC</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">IronHub</h1>
-          <p className="text-gray-400 text-sm mt-1">Your gym community</p>
+          <h1 className="text-3xl font-black uppercase tracking-wide text-white leading-tight">Stretch</h1>
+          <h1 className="text-3xl font-black uppercase tracking-wide text-orange-500 leading-tight">Collective</h1>
+          <p className="text-gray-500 text-sm mt-2">EST. 2024</p>
         </div>
 
         {/* Form */}
@@ -54,7 +55,7 @@ export default function Login() {
               <input
                 type="email"
                 className="input"
-                placeholder="you@ironhub.com"
+                placeholder="you@email.com"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required

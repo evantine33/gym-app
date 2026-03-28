@@ -42,11 +42,14 @@ export default function Layout({ children }) {
       {/* Sidebar (desktop) */}
       <aside className="hidden md:flex flex-col w-56 min-h-screen bg-gray-900 border-r border-gray-800 fixed left-0 top-0 bottom-0">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-800">
+        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-gray-700">
           <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
-            <Dumbbell className="w-4.5 h-4.5 text-white w-5 h-5" />
+            <span className="text-white font-black text-sm tracking-tight">SC</span>
           </div>
-          <span className="font-bold text-lg">IronHub</span>
+          <div className="min-w-0">
+            <span className="font-black text-sm uppercase tracking-wide leading-none block">Stretch</span>
+            <span className="font-black text-sm uppercase tracking-wide leading-none text-orange-500 block">Collective</span>
+          </div>
         </div>
 
         {/* User pill */}
