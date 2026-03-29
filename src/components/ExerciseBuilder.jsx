@@ -42,77 +42,51 @@ export const groupExercises = (exercises = []) => {
   return result
 }
 
-// ─── New blank exercise ───────────────────────────────────────────────────────
-export const newEx = (extra = {}) => ({
-  id: Date.now() + Math.random(),
-  name: '',
-  sets: '',
-  reps: '',
-  targetWeight: '',
-  setsData: [],       // per-set breakdown: [{ id, reps, weight }]
-  demoUrl: '',
-  notes: '',
-  groupId: null,
-  groupType: null,
-  ...extra,
-})
-
 // ─── New blank set row ────────────────────────────────────────────────────────
 const newSetRow = (prev = {}) => ({
-  id: Date.now() + Math.random(),
+  id: Math.random(),
   reps: prev.reps || '',
   weight: prev.weight || '',
 })
 
+// ─── New blank exercise — always starts with 3 set rows ───────────────────────
+export const newEx = (extra = {}) => ({
+  id: Date.now() + Math.random(),
+  name: '',
+  setsData: [newSetRow(), newSetRow(), newSetRow()],
+  demoUrl: '',
+  notes: '',
+  groupId: null,
+  groupType: null,
+  // legacy fields kept for backward compat with old workouts
+  sets: '',
+  reps: '',
+  targetWeight: '',
+  ...extra,
+})
+
 // ─── Single exercise field block ──────────────────────────────────────────────
-function ExerciseFields({ ex, onUpdate, onBatch }) {
-  const perSetMode = Array.isArray(ex.setsData) && ex.setsData.length > 0
-
-  // Switch to per-set mode: seed rows from current sets/reps/weight values
-  const enablePerSet = () => {
-    const count = Math.max(parseInt(ex.sets) || 3, 1)
-    const setsData = Array.from({ length: count }, (_, i) =>
-      newSetRow({ reps: ex.reps, weight: ex.targetWeight, id: Date.now() + i })
-    )
-    onUpdate('setsData', setsData)
-  }
-
-  // Collapse back to simple mode: take length as sets count, first row as defaults
-  const disablePerSet = () => {
-    const first = ex.setsData?.[0] || {}
-    onBatch({
-      setsData: [],
-      sets: String(ex.setsData?.length || ''),
-      reps: first.reps || '',
-      targetWeight: first.weight || '',
-    })
-  }
+function ExerciseFields({ ex, onUpdate }) {
+  const setsData = Array.isArray(ex.setsData) ? ex.setsData : []
 
   const addSet = () => {
-    const prev = ex.setsData || []
-    const last = prev[prev.length - 1]
-    onUpdate('setsData', [...prev, newSetRow(last)])
+    const last = setsData[setsData.length - 1]
+    onUpdate('setsData', [...setsData, newSetRow(last)])
   }
 
   const removeSet = (setId) => {
-    const next = (ex.setsData || []).filter(s => s.id !== setId)
-    if (next.length === 0) {
-      disablePerSet()
-    } else {
-      onUpdate('setsData', next)
-    }
+    if (setsData.length <= 1) return
+    onUpdate('setsData', setsData.filter(s => s.id !== setId))
   }
 
   const updateSet = (setId, field, val) => {
-    onUpdate('setsData', (ex.setsData || []).map(s =>
-      s.id === setId ? { ...s, [field]: val } : s
-    ))
+    onUpdate('setsData', setsData.map(s => s.id === setId ? { ...s, [field]: val } : s))
   }
 
   return (
     <div className="grid grid-cols-2 gap-2">
 
-      {/* Exercise name — always full width */}
+      {/* Exercise name */}
       <div className="col-span-2">
         <input
           className="input text-sm"
@@ -123,112 +97,64 @@ function ExerciseFields({ ex, onUpdate, onBatch }) {
         />
       </div>
 
-      {perSetMode ? (
-        /* ── Per-set mode ── */
-        <div className="col-span-2 space-y-2">
+      {/* Per-set breakdown */}
+      <div className="col-span-2 space-y-2">
+        {/* Column headers */}
+        <div className="grid grid-cols-[2.5rem_1fr_1fr_1.5rem] gap-2">
+          <div />
+          <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Reps</span>
+          <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Weight</span>
+          <div />
+        </div>
 
-          {/* Header row */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-300">
-              {ex.setsData.length} {ex.setsData.length === 1 ? 'Set' : 'Sets'}
-            </span>
+        {/* Set rows */}
+        {setsData.map((set, i) => (
+          <div key={set.id} className="grid grid-cols-[2.5rem_1fr_1fr_1.5rem] gap-2 items-center">
+            <span className="text-xs font-bold text-orange-400 tabular-nums">S{i + 1}</span>
+            <input
+              className="input text-sm"
+              placeholder="e.g. 8-10"
+              value={set.reps}
+              onChange={e => updateSet(set.id, 'reps', e.target.value)}
+            />
+            <input
+              className="input text-sm"
+              placeholder="e.g. 135"
+              value={set.weight}
+              onChange={e => updateSet(set.id, 'weight', e.target.value)}
+            />
             <button
               type="button"
-              onClick={disablePerSet}
-              className="text-[11px] text-gray-500 hover:text-orange-400 transition-colors"
+              onClick={() => removeSet(set.id)}
+              disabled={setsData.length <= 1}
+              className="text-gray-600 hover:text-red-400 disabled:opacity-20 transition-colors flex items-center justify-center"
             >
-              Switch to simple
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
+        ))}
 
-          {/* Column labels */}
-          <div className="grid grid-cols-[2.5rem_1fr_1fr_1.5rem] gap-2">
-            <div />
-            <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Reps</span>
-            <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">Weight</span>
-            <div />
-          </div>
+        {/* Add set */}
+        <button
+          type="button"
+          onClick={addSet}
+          className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-orange-400 transition-colors pt-0.5"
+        >
+          <Plus className="w-3 h-3" /> Add set
+        </button>
+      </div>
 
-          {/* Set rows */}
-          {ex.setsData.map((set, i) => (
-            <div key={set.id} className="grid grid-cols-[2.5rem_1fr_1fr_1.5rem] gap-2 items-center">
-              <span className="text-xs font-bold text-orange-400 tabular-nums">S{i + 1}</span>
-              <input
-                className="input text-sm"
-                placeholder="e.g. 8-10"
-                value={set.reps}
-                onChange={e => updateSet(set.id, 'reps', e.target.value)}
-              />
-              <input
-                className="input text-sm"
-                placeholder="e.g. 135"
-                value={set.weight}
-                onChange={e => updateSet(set.id, 'weight', e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => removeSet(set.id)}
-                className="text-gray-600 hover:text-red-400 transition-colors flex items-center justify-center"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          ))}
-
-          {/* Add set */}
-          <button
-            type="button"
-            onClick={addSet}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-orange-400 transition-colors pt-0.5"
-          >
-            <Plus className="w-3 h-3" /> Add set
-          </button>
-        </div>
-      ) : (
-        /* ── Simple mode ── */
-        <>
-          <input
-            className="input text-sm"
-            placeholder="Sets"
-            type="number"
-            min="1"
-            value={ex.sets}
-            onChange={e => onUpdate('sets', e.target.value)}
-          />
-          <input
-            className="input text-sm"
-            placeholder="Reps (e.g. 8-10)"
-            value={ex.reps}
-            onChange={e => onUpdate('reps', e.target.value)}
-          />
-          <input
-            className="input text-sm"
-            placeholder="Target Weight"
-            value={ex.targetWeight}
-            onChange={e => onUpdate('targetWeight', e.target.value)}
-          />
-          {/* Set breakdown toggle */}
-          <button
-            type="button"
-            onClick={enablePerSet}
-            className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 hover:text-orange-400 border border-dashed border-gray-700 hover:border-orange-500/40 rounded-lg px-2 py-1.5 transition-colors"
-          >
-            <Plus className="w-3 h-3" /> Set breakdown
-          </button>
-        </>
-      )}
-
-      {/* Demo URL — always full width */}
+      {/* Demo URL */}
       <div className="col-span-2">
         <input
           className="input text-sm"
-          placeholder="Demo URL"
+          placeholder="Demo URL (optional)"
           value={ex.demoUrl}
           onChange={e => onUpdate('demoUrl', e.target.value)}
         />
       </div>
 
-      {/* Notes — always full width */}
+      {/* Notes */}
       <div className="col-span-2">
         <textarea
           className="input resize-none text-sm"
@@ -246,9 +172,6 @@ function ExerciseFields({ ex, onUpdate, onBatch }) {
 export default function ExerciseBuilder({ exercises, setExercises }) {
   const update = (id, field, val) =>
     setExercises(exs => exs.map(e => e.id === id ? { ...e, [field]: val } : e))
-
-  const batch = (id, patch) =>
-    setExercises(exs => exs.map(e => e.id === id ? { ...e, ...patch } : e))
 
   const remove = (id) =>
     setExercises(exs => exs.filter(e => e.id !== id))
@@ -305,11 +228,7 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
                     </button>
                   )}
                 </div>
-                <ExerciseFields
-                  ex={ex}
-                  onUpdate={(field, val) => update(ex.id, field, val)}
-                  onBatch={(patch) => batch(ex.id, patch)}
-                />
+                <ExerciseFields ex={ex} onUpdate={(field, val) => update(ex.id, field, val)} />
               </div>
             )
           }
@@ -338,7 +257,6 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
                       <div className={`w-5 h-5 rounded-full text-[10px] font-black text-white flex items-center justify-center flex-shrink-0 ${style.letterBg}`}>
                         {LETTERS[i]}
                       </div>
-                      {/* Only allow removal if more than min (2 for superset) */}
                       {item.exercises.length > 2 && (
                         <button type="button" onClick={() => remove(ex.id)}
                           className="text-gray-500 hover:text-red-400 transition-colors">
@@ -346,11 +264,7 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
                         </button>
                       )}
                     </div>
-                    <ExerciseFields
-                      ex={ex}
-                      onUpdate={(field, val) => update(ex.id, field, val)}
-                      onBatch={(patch) => batch(ex.id, patch)}
-                    />
+                    <ExerciseFields ex={ex} onUpdate={(field, val) => update(ex.id, field, val)} />
                   </div>
                 ))}
               </div>

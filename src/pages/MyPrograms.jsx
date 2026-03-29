@@ -17,7 +17,10 @@ function LogModal({ exercise, workoutId, existingLog, onClose }) {
   const { dispatch } = useApp()
   const [sets, setSets] = useState(() => {
     if (existingLog?.sets?.length) return existingLog.sets.map(s => ({ ...s }))
-    return Array.from({ length: exercise.sets }, () => ({
+    if (exercise.setsData?.length) {
+      return exercise.setsData.map(s => ({ reps: s.reps || '', weight: s.weight || '' }))
+    }
+    return Array.from({ length: parseInt(exercise.sets) || 1 }, () => ({
       reps: exercise.reps || '',
       weight: exercise.targetWeight || '',
     }))
@@ -26,8 +29,10 @@ function LogModal({ exercise, workoutId, existingLog, onClose }) {
 
   const updateSet = (i, field, value) =>
     setSets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
-  const addSet = () =>
-    setSets(prev => [...prev, { reps: exercise.reps || '', weight: exercise.targetWeight || '' }])
+  const addSet = () => {
+    const last = sets[sets.length - 1]
+    setSets(prev => [...prev, { reps: last?.reps || '', weight: last?.weight || '' }])
+  }
   const removeSet = (i) =>
     setSets(prev => prev.filter((_, idx) => idx !== i))
 
@@ -43,7 +48,9 @@ function LogModal({ exercise, workoutId, existingLog, onClose }) {
           <div>
             <h3 className="font-bold text-white">{exercise.name}</h3>
             <p className="text-xs text-gray-500 mt-0.5">
-              Target: {exercise.sets} × {exercise.reps}{exercise.targetWeight ? ` @ ${exercise.targetWeight}` : ''}
+              {exercise.setsData?.length
+                ? `${exercise.setsData.length} sets · log your actual reps & weight`
+                : `Target: ${exercise.sets} × ${exercise.reps}${exercise.targetWeight ? ` @ ${exercise.targetWeight}` : ''}`}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white p-1"><X className="w-5 h-5" /></button>
@@ -58,7 +65,7 @@ function LogModal({ exercise, workoutId, existingLog, onClose }) {
           <div className="space-y-2">
             {sets.map((s, i) => (
               <div key={i} className="grid grid-cols-[40px_1fr_1fr_32px] gap-2 items-center">
-                <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold ${i < exercise.sets ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'}`}>
+                <div className={`h-8 w-8 rounded-lg flex items-center justify-center text-xs font-bold ${i < (exercise.setsData?.length ?? exercise.sets) ? 'bg-orange-500/20 text-orange-400' : 'bg-gray-700 text-gray-400'}`}>
                   {i + 1}
                 </div>
                 <input className="input h-9 text-center text-sm" placeholder="Reps" value={s.reps}
@@ -121,11 +128,22 @@ function ExRow({ exercise, workoutId, myLogs }) {
                 )}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs mt-0.5">
-              <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>
-              <span className="text-gray-400">× <span className="text-white font-medium">{exercise.reps}</span></span>
-              {exercise.targetWeight && <span className="text-gray-400">@ <span className="text-white font-medium">{exercise.targetWeight}</span></span>}
-            </div>
+            {exercise.setsData?.length ? (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {exercise.setsData.map((s, i) => (
+                  <span key={i} className="inline-flex items-center gap-1 text-xs bg-gray-700/60 border border-gray-600/50 rounded px-1.5 py-0.5">
+                    <span className="text-orange-400 font-semibold">S{i + 1}</span>
+                    <span className="text-gray-200">{s.reps || '—'}{s.weight ? ` @ ${s.weight}` : ''}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2 text-xs mt-0.5">
+                <span className="text-gray-400"><span className="text-white font-medium">{exercise.sets}</span> sets</span>
+                <span className="text-gray-400">× <span className="text-white font-medium">{exercise.reps}</span></span>
+                {exercise.targetWeight && <span className="text-gray-400">@ <span className="text-white font-medium">{exercise.targetWeight}</span></span>}
+              </div>
+            )}
             {log?.sets && (
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {log.sets.map((s, i) => (
