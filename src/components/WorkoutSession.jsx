@@ -2,11 +2,81 @@ import { useState, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   X, ChevronRight, ChevronLeft, CheckCircle2, Trophy,
-  Plus, Minus, ExternalLink, Flame, Play, Star,
+  Plus, Minus, Flame, Play, Star,
 } from 'lucide-react'
 import { groupExercises, GROUP_STYLES } from './ExerciseBuilder'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+// ─── Extract YouTube video ID from URL ────────────────────────────────────────
+function getYouTubeId(url) {
+  if (!url) return null
+  const match = url.match(/(?:v=|youtu\.be\/)([^&\s?]+)/)
+  return match ? match[1] : null
+}
+
+// ─── Tappable video tile ──────────────────────────────────────────────────────
+function VideoTile({ url, name }) {
+  const [open, setOpen] = useState(false)
+  if (!url) return null
+  const ytId = getYouTubeId(url)
+
+  // Non-embeddable URL (e.g. YouTube search) → open in new tab
+  if (!ytId) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer"
+        className="w-14 h-14 flex-shrink-0 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center hover:border-orange-500/50 hover:bg-gray-700 transition-all"
+        title="Watch demo">
+        <Play className="w-5 h-5 text-orange-400 fill-orange-400" />
+      </a>
+    )
+  }
+
+  return (
+    <>
+      {/* Thumbnail tile */}
+      <button onClick={() => setOpen(true)}
+        className="w-14 h-14 flex-shrink-0 rounded-xl overflow-hidden relative border border-gray-700 hover:border-orange-500/60 transition-all group"
+        title="Watch demo">
+        <img
+          src={`https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
+          alt={name}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/50 group-hover:bg-black/25 transition-all flex items-center justify-center">
+          <div className="w-7 h-7 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+            <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+          </div>
+        </div>
+      </button>
+
+      {/* Video modal — z-[60] sits above the session overlay (z-50) */}
+      {open && (
+        <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4"
+          onClick={() => setOpen(false)}>
+          <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-white truncate pr-4">{name}</h3>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white flex-shrink-0">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="aspect-video rounded-2xl overflow-hidden bg-black">
+              <iframe
+                src={`https://www.youtube.com/embed/${ytId}?autoplay=1`}
+                title={name}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+            <p className="text-xs text-gray-600 mt-2 text-center">Tap outside to close</p>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 // ─── Seed log rows from existing log or exercise targets ──────────────────────
 function seedLog(ex, existingLog) {
@@ -30,15 +100,10 @@ function ExerciseLogger({ exercise, log, onUpdateSet, onAddSet, onRemoveSet, onU
 
   return (
     <div>
-      {/* Name + demo link */}
-      <div className="flex items-start justify-between gap-3 mb-3">
+      {/* Video tile + name */}
+      <div className="flex items-center gap-3 mb-3">
+        <VideoTile url={exercise.demoUrl} name={exercise.name} />
         <h3 className="text-xl font-black text-white leading-tight">{exercise.name}</h3>
-        {exercise.demoUrl && (
-          <a href={exercise.demoUrl} target="_blank" rel="noreferrer"
-            className="flex-shrink-0 flex items-center gap-1 text-xs text-gray-500 hover:text-orange-400 transition-colors mt-1">
-            <ExternalLink className="w-3.5 h-3.5" /> Demo
-          </a>
-        )}
       </div>
 
       {/* Target tags */}
