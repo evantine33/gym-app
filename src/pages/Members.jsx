@@ -108,23 +108,66 @@ function MemberCard({ member, logs, workouts }) {
             </div>
           </div>
 
-          {/* Recent logs */}
+          {/* Recent logs — grouped by workout */}
           {memberLogs.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">Recent Activity</p>
-              <div className="space-y-1.5">
-                {memberLogs.slice(-3).reverse().map(log => {
-                  const workout = workouts.find(w => w.id === log.workoutId)
-                  return (
-                    <div key={log.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <Dumbbell className="w-3.5 h-3.5 text-orange-400" />
-                        <span className="text-sm text-gray-300">{workout?.title || 'Workout'}</span>
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-2">Recent Workout Logs</p>
+              <div className="space-y-3">
+                {/* Get last 3 unique workouts logged */}
+                {[...new Set(memberLogs.map(l => l.workoutId))]
+                  .slice(-3).reverse()
+                  .map(workoutId => {
+                    const workout = workouts.find(w => w.id === workoutId)
+                    const exLogs = memberLogs.filter(l => l.workoutId === workoutId)
+                    const logDate = exLogs[0]?.date
+                      ? new Date(exLogs[0].date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                      : ''
+                    return (
+                      <div key={workoutId} className="bg-gray-800/60 border border-gray-700 rounded-xl overflow-hidden">
+                        {/* Workout header */}
+                        <div className="flex items-center justify-between px-3 py-2 bg-gray-800 border-b border-gray-700">
+                          <div className="flex items-center gap-2">
+                            <Dumbbell className="w-3.5 h-3.5 text-orange-400" />
+                            <span className="text-sm font-semibold text-white">{workout?.title || 'Workout'}</span>
+                          </div>
+                          <span className="text-[10px] text-gray-500">{logDate}</span>
+                        </div>
+                        {/* Exercise rows */}
+                        <div className="divide-y divide-gray-800">
+                          {exLogs.map(log => {
+                            const maxWeight = Math.max(0, ...(log.sets || []).map(s => parseFloat(s.weight) || 0))
+                            return (
+                              <div key={log.id} className="px-3 py-2.5">
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-sm text-orange-400 font-semibold">
+                                    {log.exerciseName || '—'}
+                                  </span>
+                                  {maxWeight > 0 && (
+                                    <span className="text-xs text-gray-400 font-medium">
+                                      Top: {maxWeight} lbs
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {(log.sets || []).map((s, i) => (
+                                    <span key={i}
+                                      className="text-[11px] bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 text-gray-300">
+                                      <span className="text-gray-500">S{i + 1}: </span>
+                                      {s.reps || '—'}
+                                      {s.weight ? <span className="text-gray-400"> @ {s.weight}</span> : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                                {log.notes && (
+                                  <p className="text-[11px] text-gray-500 mt-1.5 italic">"{log.notes}"</p>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                      <span className="text-xs text-gray-500">{log.sets?.length || 0} sets</span>
-                    </div>
-                  )
-                })}
+                    )
+                  })}
               </div>
             </div>
           )}

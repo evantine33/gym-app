@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   X, ChevronRight, ChevronLeft, CheckCircle2, Trophy,
-  Plus, Minus, ExternalLink, Flame, Play,
+  Plus, Minus, ExternalLink, Flame, Play, Star,
 } from 'lucide-react'
 import { groupExercises, GROUP_STYLES } from './ExerciseBuilder'
 
@@ -122,6 +122,9 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
   const { dispatch } = useApp()
   const contentRef = useRef(null)
 
+  // Snapshot pre-session logs for PR comparison (before any saves happen)
+  const [initialLogs] = useState(() => myLogs)
+
   const blocks = groupExercises(workout.exercises)
   const hasWarmup = workout.warmup?.length > 0
 
@@ -133,6 +136,7 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
 
   const [blockIdx, setBlockIdx] = useState(0)
   const [done, setDone] = useState(false)
+  const [prList, setPrList] = useState([])
 
   // Initialize log data from existing logs or exercise targets
   const [logData, setLogData] = useState(() => {
@@ -191,16 +195,35 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
       const log = logData[ex.id]
       dispatch({
         type: 'LOG_EXERCISE',
-        log: { workoutId: workout.id, exerciseId: ex.id, sets: log.sets, notes: log.notes },
+        log: { workoutId: workout.id, exerciseId: ex.id, exerciseName: ex.name, sets: log.sets, notes: log.notes },
       })
     })
   }
 
+  // ── PR detection ─────────────────────────────────────────────────────────
+  const computePRs = () => {
+    const prs = []
+    workout.exercises.forEach(ex => {
+      const sessionSets = logData[ex.id]?.sets || []
+      const newMax = Math.max(0, ...sessionSets.map(s => parseFloat(s.weight) || 0))
+      if (newMax <= 0) return
+      const histLogs = initialLogs.filter(l => l.exerciseName === ex.name || l.exerciseId === ex.id)
+      const prevMax = histLogs.length === 0
+        ? 0
+        : Math.max(0, ...histLogs.flatMap(l => (l.sets || []).map(s => parseFloat(s.weight) || 0)))
+      if (newMax > prevMax) prs.push({ name: ex.name, weight: newMax })
+    })
+    return prs
+  }
+
   const handleNext = () => {
-    saveBlock(currentBlock)
     if (isLast) {
+      const prs = computePRs()
+      saveBlock(currentBlock)
+      setPrList(prs)
       setDone(true)
     } else {
+      saveBlock(currentBlock)
       setBlockIdx(i => i + 1)
       contentRef.current?.scrollTo(0, 0)
     }
@@ -218,15 +241,38 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
     }).length
 
     return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-8 text-center">
+      <div className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center p-8 text-center overflow-y-auto">
         <div className="w-24 h-24 rounded-full bg-green-500/20 border-2 border-green-500 flex items-center justify-center mb-6 animate-pulse">
           <Trophy className="w-12 h-12 text-green-400" />
         </div>
         <h2 className="text-3xl font-black text-white mb-2">Workout Done!</h2>
         <p className="text-orange-400 font-semibold text-lg mb-1">{workout.title}</p>
-        <p className="text-gray-500 text-sm mb-10">
+        <p className="text-gray-500 text-sm mb-6">
           {loggedCount} of {workout.exercises.length} exercises logged
         </p>
+
+        {/* PR callouts */}
+        {prList.length > 0 && (
+          <div className="w-full max-w-sm mb-8">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+              <span className="text-yellow-400 font-black text-sm uppercase tracking-wide">
+                Personal Records!
+              </span>
+              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+            </div>
+            <div className="space-y-2">
+              {prList.map((pr, i) => (
+                <div key={i}
+                  className="flex items-center justify-between bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                  <span className="text-white font-semibold text-sm">{pr.name}</span>
+                  <span className="text-yellow-400 font-black">{pr.weight} lbs 🏆</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button onClick={onClose} className="btn-primary px-12 py-3.5 text-base font-bold">
           Finish
         </button>

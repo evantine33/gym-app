@@ -156,12 +156,13 @@ const SEED_LOGS = [
     userId: 'member-1',
     workoutId: 'workout-1',
     exerciseId: 'ex-1',
+    exerciseName: 'Back Squat',
     sets: [
-      { reps: '5', weight: '225 lbs' },
-      { reps: '5', weight: '225 lbs' },
-      { reps: '5', weight: '225 lbs' },
-      { reps: '5', weight: '215 lbs' },
-      { reps: '4', weight: '215 lbs' },
+      { reps: '5', weight: '225' },
+      { reps: '5', weight: '225' },
+      { reps: '5', weight: '225' },
+      { reps: '5', weight: '215' },
+      { reps: '4', weight: '215' },
     ],
     notes: 'Felt solid. Last set was tough.',
     date: new Date().toISOString(),
@@ -179,7 +180,7 @@ const loadState = () => {
 
 const getInitialState = () => {
   const saved = loadState()
-  if (saved) return { gyms: [], programs: [], ...saved }
+  if (saved) return { gyms: [], programs: [], notifications: [], ...saved }
   return {
     currentUserId: null,
     gyms: [SEED_GYM],
@@ -189,6 +190,7 @@ const getInitialState = () => {
     communityMessages: SEED_COMMUNITY,
     directMessages: [],
     programs: [],
+    notifications: [],
   }
 }
 
@@ -263,7 +265,22 @@ function reducer(state, action) {
         createdBy: state.currentUserId,
         createdAt: new Date().toISOString(),
       }
-      return { ...state, workouts: [workout, ...state.workouts] }
+      const workoutNotif = {
+        id: 'notif-' + Date.now(),
+        gymId: currentUser?.gymId || null,
+        type: 'new_workout',
+        title: '🏋️ New Workout Posted',
+        body: `${workout.title} is ready — ${new Date(workout.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        forRole: 'member',
+        forUserId: null,
+      }
+      return {
+        ...state,
+        workouts: [workout, ...state.workouts],
+        notifications: [...(state.notifications || []), workoutNotif],
+      }
     }
 
     case 'DELETE_WORKOUT':
@@ -379,7 +396,22 @@ function reducer(state, action) {
           })
         }
       }
-      return { ...state, workouts: [...state.workouts, ...newWorkouts] }
+      const deployNotif = {
+        id: 'notif-' + Date.now() + '-deploy',
+        gymId: currentUser?.gymId || null,
+        type: 'program_deployed',
+        title: '📋 Program Scheduled',
+        body: `${prog.name} — ${newWorkouts.length} workouts added to your schedule`,
+        createdAt: new Date().toISOString(),
+        read: false,
+        forRole: 'member',
+        forUserId: action.assignTo || null,
+      }
+      return {
+        ...state,
+        workouts: [...state.workouts, ...newWorkouts],
+        notifications: [...(state.notifications || []), deployNotif],
+      }
     }
 
     case 'LOG_EXERCISE': {
@@ -393,23 +425,37 @@ function reducer(state, action) {
           ...state,
           workoutLogs: state.workoutLogs.map(l =>
             l.id === existing.id
-              ? { ...l, sets: action.log.sets, notes: action.log.notes, date: new Date().toISOString() }
+              ? { ...l, sets: action.log.sets, notes: action.log.notes, exerciseName: action.log.exerciseName || l.exerciseName, date: new Date().toISOString() }
               : l
           ),
         }
       }
       const currentUser = state.users.find(u => u.id === state.currentUserId)
       const newLog = {
-        id: 'log-' + Date.now(),
+        id: 'log-' + Date.now() + '-' + Math.random().toString(36).slice(2),
         gymId: currentUser?.gymId || null,
         userId: state.currentUserId,
         workoutId: action.log.workoutId,
         exerciseId: action.log.exerciseId,
+        exerciseName: action.log.exerciseName || '',
         sets: action.log.sets,
         notes: action.log.notes,
         date: new Date().toISOString(),
       }
       return { ...state, workoutLogs: [...state.workoutLogs, newLog] }
+    }
+
+    case 'MARK_NOTIFS_READ': {
+      return {
+        ...state,
+        notifications: (state.notifications || []).map(n =>
+          n.gymId === action.gymId &&
+          n.forRole === action.forRole &&
+          (n.forUserId === null || n.forUserId === action.userId)
+            ? { ...n, read: true }
+            : n
+        ),
+      }
     }
 
     case 'SEND_COMMUNITY_MSG': {
