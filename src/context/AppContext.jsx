@@ -355,6 +355,26 @@ function reducer(state, action) {
         }),
       }
 
+    case 'UPDATE_PROGRAM_WORKOUT':
+      return {
+        ...state,
+        programs: state.programs.map(p => {
+          if (p.id !== action.programId) return p
+          const key = String(action.week)
+          return {
+            ...p,
+            weeks: {
+              ...p.weeks,
+              [key]: (p.weeks[key] || []).map(pw =>
+                pw.id === action.pwId
+                  ? { ...pw, title: action.title, exercises: action.exercises, warmup: action.warmup ?? pw.warmup }
+                  : pw
+              ),
+            },
+          }
+        }),
+      }
+
     case 'COPY_PROGRAM_WEEK': {
       const prog = state.programs.find(p => p.id === action.programId)
       if (!prog) return state

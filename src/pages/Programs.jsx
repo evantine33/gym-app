@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   Plus, Trash2, ChevronLeft, ChevronRight, X, Copy,
-  Layers, Rocket, BookOpen, Users, User, Check, ExternalLink
+  Layers, Rocket, BookOpen, Users, User, Check, ExternalLink, Pencil
 } from 'lucide-react'
 import ExerciseBuilder, { newEx, groupExercises, GROUP_STYLES } from '../components/ExerciseBuilder'
-import WarmupSection from '../components/WarmupSection'
+import WarmupSection, { newWarmupItem } from '../components/WarmupSection'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -108,6 +108,77 @@ function AddProgramWorkoutModal({ programId, week, day, onClose }) {
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
             <button type="submit" className="btn-primary flex-1">Add to Program</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ─── Edit Program Workout Modal ───────────────────────────────────────────────
+function EditProgramWorkoutModal({ programId, week, pw, onClose }) {
+  const { dispatch } = useApp()
+  const [title, setTitle] = useState(pw.title || '')
+  const [warmup, setWarmup] = useState(pw.warmup?.length ? pw.warmup : [])
+  const [exercises, setExercises] = useState(
+    pw.exercises?.length
+      ? pw.exercises.map(ex => ({
+          ...newEx(),
+          ...ex,
+          setsData: ex.setsData?.length
+            ? ex.setsData
+            : Array.from({ length: Number(ex.sets) || 3 }, () => ({
+                id: Math.random(),
+                reps: ex.reps || '',
+                weight: ex.targetWeight || '',
+              })),
+        }))
+      : [newEx()]
+  )
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    const valid = exercises
+      .filter(ex => ex.name.trim())
+      .map(ex => ({ ...ex, id: ex.id || 'ex-' + Math.random().toString(36).slice(2) }))
+    if (!valid.length) return
+    const validWarmup = warmup.filter(w => w.name.trim())
+    dispatch({
+      type: 'UPDATE_PROGRAM_WORKOUT',
+      programId,
+      week,
+      pwId: pw.id,
+      title,
+      warmup: validWarmup,
+      exercises: valid,
+    })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg my-4">
+        <div className="flex items-center justify-between p-5 border-b border-gray-800">
+          <div>
+            <h3 className="font-bold">Edit Workout</h3>
+            <p className="text-sm text-orange-400 mt-0.5">Week {week} · {pw.day}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Workout Title</label>
+            <input className="input" placeholder="e.g. Lower Body Strength" value={title}
+              onChange={e => setTitle(e.target.value)} required />
+          </div>
+          <WarmupSection warmup={warmup} setWarmup={setWarmup} />
+          <div>
+            <h3 className="text-sm font-semibold text-gray-300 mb-2">Exercises</h3>
+            <ExerciseBuilder exercises={exercises} setExercises={setExercises} />
+          </div>
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+            <button type="submit" className="btn-primary flex-1">Save Changes</button>
           </div>
         </form>
       </div>
@@ -300,6 +371,7 @@ function ProgramEditor({ programId, onBack }) {
   const program = state.programs.find(p => p.id === programId)
   const [selectedWeek, setSelectedWeek] = useState(1)
   const [addWorkout, setAddWorkout] = useState(null) // { day }
+  const [editWorkout, setEditWorkout] = useState(null) // pw object
   const [copyFrom, setCopyFrom] = useState('')
 
   if (!program) { onBack(); return null }
@@ -403,7 +475,7 @@ function ProgramEditor({ programId, onBack }) {
                 <div className="space-y-2">
                   {dayWorkouts.map(w => (
                     <div key={w.id} className="bg-gray-800 rounded-xl p-3 border border-gray-700 flex items-center justify-between gap-2">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="font-medium text-sm text-white truncate">{w.title}</p>
                         <p className="text-xs text-gray-500 mt-0.5">
                           {w.exercises.length} exercise{w.exercises.length !== 1 ? 's' : ''} · {' '}
@@ -411,12 +483,22 @@ function ProgramEditor({ programId, onBack }) {
                           {w.exercises.length > 3 ? '...' : ''}
                         </p>
                       </div>
-                      <button
-                        onClick={() => dispatch({ type: 'DELETE_PROGRAM_WORKOUT', programId, week: selectedWeek, pwId: w.id })}
-                        className="text-gray-600 hover:text-red-400 flex-shrink-0"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          onClick={() => setEditWorkout(w)}
+                          className="text-gray-500 hover:text-orange-400 transition-colors"
+                          title="Edit workout"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => dispatch({ type: 'DELETE_PROGRAM_WORKOUT', programId, week: selectedWeek, pwId: w.id })}
+                          className="text-gray-600 hover:text-red-400 transition-colors"
+                          title="Delete workout"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -432,6 +514,15 @@ function ProgramEditor({ programId, onBack }) {
           week={selectedWeek}
           day={addWorkout.day}
           onClose={() => setAddWorkout(null)}
+        />
+      )}
+
+      {editWorkout && (
+        <EditProgramWorkoutModal
+          programId={programId}
+          week={selectedWeek}
+          pw={editWorkout}
+          onClose={() => setEditWorkout(null)}
         />
       )}
     </div>
