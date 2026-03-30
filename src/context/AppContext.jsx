@@ -180,7 +180,7 @@ const loadState = () => {
 
 const getInitialState = () => {
   const saved = loadState()
-  if (saved) return { gyms: [], programs: [], notifications: [], ...saved }
+  if (saved) return { gyms: [], programs: [], notifications: [], benchmarkDefs: [], benchmarkEntries: [], ...saved }
   return {
     currentUserId: null,
     gyms: [SEED_GYM],
@@ -191,6 +191,8 @@ const getInitialState = () => {
     directMessages: [],
     programs: [],
     notifications: [],
+    benchmarkDefs: [],
+    benchmarkEntries: [],
   }
 }
 
@@ -524,6 +526,51 @@ function reducer(state, action) {
         ),
       }
     }
+
+    case 'ADD_BENCHMARK_DEF': {
+      const currentUser = state.users.find(u => u.id === state.currentUserId)
+      const def = {
+        id: 'bdef-' + Date.now(),
+        gymId: currentUser?.gymId || null,
+        createdBy: state.currentUserId,
+        name: action.def.name,
+        description: action.def.description || '',
+        type: action.def.type,
+        unit: action.def.unit,
+        higherIsBetter: action.def.higherIsBetter,
+        scope: action.def.scope || 'gym',
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, benchmarkDefs: [...(state.benchmarkDefs || []), def] }
+    }
+
+    case 'DELETE_BENCHMARK_DEF':
+      return {
+        ...state,
+        benchmarkDefs: (state.benchmarkDefs || []).filter(d => d.id !== action.defId),
+        benchmarkEntries: (state.benchmarkEntries || []).filter(e => e.benchmarkId !== action.defId),
+      }
+
+    case 'LOG_BENCHMARK': {
+      const currentUser = state.users.find(u => u.id === state.currentUserId)
+      const entry = {
+        id: 'bentry-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+        gymId: currentUser?.gymId || null,
+        userId: state.currentUserId,
+        benchmarkId: action.entry.benchmarkId,
+        value: action.entry.value,
+        notes: action.entry.notes || '',
+        date: action.entry.date,
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, benchmarkEntries: [...(state.benchmarkEntries || []), entry] }
+    }
+
+    case 'DELETE_BENCHMARK_ENTRY':
+      return {
+        ...state,
+        benchmarkEntries: (state.benchmarkEntries || []).filter(e => e.id !== action.entryId),
+      }
 
     default:
       return state

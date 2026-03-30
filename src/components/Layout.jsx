@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList, Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X } from 'lucide-react'
+import { Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList, Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X, Target } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Layout({ children }) {
@@ -48,6 +48,7 @@ export default function Layout({ children }) {
   const memberNav = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Workouts' },
     { to: '/my-programs', icon: BookOpen, label: 'Programs' },
+    { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/community', icon: Users, label: 'Community' },
     { to: '/messages', icon: Mail, label: 'Messages', badge: unreadDMs },
@@ -57,6 +58,7 @@ export default function Layout({ children }) {
   const coachNav = [
     { to: '/coach', icon: ClipboardList, label: 'Dashboard' },
     { to: '/members', icon: UsersRound, label: 'Members' },
+    { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/programs', icon: Layers, label: 'Programs' },
     { to: '/community', icon: Users, label: 'Community' },
