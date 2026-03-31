@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import {
   Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList,
   Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X,
-  Target, Menu, LogOut, NotebookPen,
+  Target, Menu, LogOut, NotebookPen, ShoppingBag,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -56,6 +56,7 @@ export default function Layout({ children }) {
   const memberNav = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Workouts' },
     { to: '/my-programs', icon: BookOpen, label: 'Programs' },
+    { to: '/store', icon: ShoppingBag, label: 'Store' },
     { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/community', icon: Users, label: 'Community' },
@@ -67,6 +68,7 @@ export default function Layout({ children }) {
   const coachNav = [
     { to: '/coach', icon: ClipboardList, label: 'Dashboard' },
     { to: '/members', icon: UsersRound, label: 'Members' },
+    { to: '/store', icon: ShoppingBag, label: 'Store' },
     { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/programs', icon: Layers, label: 'Programs' },
@@ -91,6 +93,7 @@ export default function Layout({ children }) {
   ]
 
   const memberMore = [
+    { to: '/store', icon: ShoppingBag, label: 'Store' },
     { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },
     { to: '/journal', icon: NotebookPen, label: 'Journal' },
@@ -99,6 +102,7 @@ export default function Layout({ children }) {
   ]
 
   const coachMore = [
+    { to: '/store', icon: ShoppingBag, label: 'Store' },
     { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
     { to: '/programs', icon: Layers, label: 'Programs' },
     { to: '/stats', icon: TrendingUp, label: 'Volume' },

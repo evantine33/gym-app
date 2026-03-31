@@ -16,17 +16,19 @@ import Stats from './pages/Stats'
 import MyPrograms from './pages/MyPrograms'
 import Benchmarks from './pages/Benchmarks'
 import Journal from './pages/Journal'
+import Store from './pages/Store'
 
 // ─── Route Guard ──────────────────────────────────────────────────────────────
 function AppRoutes() {
   const { currentUser } = useApp()
 
-  // Not logged in → public pages only
+  // Not logged in → public pages only (store is publicly browsable)
   if (!currentUser) {
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/store" element={<Store />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     )
@@ -66,6 +68,7 @@ function AppRoutes() {
         <Route path="/my-programs" element={<MyPrograms />} />
         <Route path="/benchmarks" element={<Benchmarks />} />
         <Route path="/journal" element={<Journal />} />
+        <Route path="/store" element={<Store />} />
         <Route path="/community" element={<Community />} />
         <Route path="/messages" element={<DirectMessages />} />
         <Route path="/profile" element={<Profile />} />

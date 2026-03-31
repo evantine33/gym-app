@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
-import { BookOpen, ChevronDown, ChevronUp, CheckCircle2, Circle, ExternalLink, Flame, Play } from 'lucide-react'
+import { BookOpen, ChevronDown, ChevronUp, CheckCircle2, Circle, ExternalLink, Flame, Play, ShoppingBag, Lock } from 'lucide-react'
 import { groupExercises, GROUP_STYLES } from '../components/ExerciseBuilder'
 import WorkoutSession from '../components/WorkoutSession'
+import { useNavigate } from 'react-router-dom'
 
 function WarmupDisplay({ warmup }) {
   const [open, setOpen] = useState(false)
@@ -301,9 +302,88 @@ function ProgramCard({ program }) {
   )
 }
 
+// ─── Purchased Program Card ────────────────────────────────────────────────────
+function PurchasedCard({ listing }) {
+  const [openWeek, setOpenWeek] = useState(null)
+
+  return (
+    <div className="card">
+      {/* Header */}
+      <div className="flex items-start gap-4 mb-4">
+        <div className="text-4xl">{listing.thumbnail}</div>
+        <div className="flex-1 min-w-0">
+          <h2 className="font-bold text-white text-lg leading-tight">{listing.title}</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            by {listing.coachName} · {listing.durationWeeks} weeks · {listing.daysPerWeek} days/wk
+          </p>
+          {listing.shortDesc && (
+            <p className="text-sm text-gray-400 mt-1">{listing.shortDesc}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Week list */}
+      <div className="space-y-2">
+        {(listing.weeks || []).map((week, wi) => (
+          <div key={wi} className="border border-gray-700 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setOpenWeek(openWeek === wi ? null : wi)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-gray-800/40 hover:bg-gray-800/60 transition-colors text-left"
+            >
+              <span className="text-sm font-bold text-white">Week {week.weekNum}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">{week.workouts?.length || 0} workouts</span>
+                {openWeek === wi
+                  ? <ChevronUp className="w-4 h-4 text-gray-500" />
+                  : <ChevronDown className="w-4 h-4 text-gray-500" />}
+              </div>
+            </button>
+            {openWeek === wi && (
+              <div className="divide-y divide-gray-800">
+                {(week.workouts || []).map((wo, woi) => (
+                  <div key={woi} className="px-4 py-3">
+                    <p className="text-xs text-gray-500">{wo.day}</p>
+                    <p className="text-sm font-semibold text-white mb-2">{wo.title}</p>
+                    <div className="space-y-1">
+                      {(wo.exercises || []).map((exr, ei) => (
+                        <div key={ei} className="flex items-center gap-2 text-xs text-gray-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 flex-shrink-0" />
+                          <span className="text-white">{exr.name}</span>
+                          <span className="text-gray-600">
+                            {exr.setsData?.length || exr.sets}×{exr.setsData?.[0]?.reps || exr.reps}
+                            {exr.setsData?.[0]?.weight ? ` @ ${exr.setsData[0].weight}` : ''}
+                          </span>
+                          {exr.notes ? <span className="text-gray-600 italic truncate">{exr.notes}</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Remaining locked weeks */}
+        {listing.durationWeeks > (listing.weeks?.length || 0) && (
+          <div className="flex items-center justify-between px-4 py-3 border border-gray-800 border-dashed rounded-xl">
+            <span className="text-sm text-gray-600">
+              + {listing.durationWeeks - (listing.weeks?.length || 0)} more weeks (content being added)
+            </span>
+            <Lock className="w-4 h-4 text-gray-700" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MyPrograms() {
   const { state, currentUser } = useApp()
+  const navigate = useNavigate()
+  const [tab, setTab] = useState('assigned')
+
   const gymId = currentUser?.gymId
   const gymWorkouts = state.workouts.filter(w => w.gymId === gymId)
 
@@ -331,31 +411,92 @@ export default function MyPrograms() {
     }
   })
 
+  // Purchased store programs
+  const myPurchases = (state.purchases || []).filter(p => p.buyerId === currentUser?.id)
+  const purchasedListings = myPurchases
+    .map(p => (state.programListings || []).find(l => l.id === p.listingId))
+    .filter(Boolean)
+
+  const purchasedCount = purchasedListings.length
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <BookOpen className="w-6 h-6 text-orange-400" /> My Programs
         </h1>
-        <p className="text-gray-400 text-sm mt-0.5">
-          Programs assigned to you by your coach
-        </p>
       </div>
 
-      {programs.length === 0 ? (
-        <div className="card text-center py-14">
-          <BookOpen className="w-12 h-12 text-gray-700 mx-auto mb-3" />
-          <p className="text-gray-300 font-semibold">No programs assigned yet</p>
-          <p className="text-gray-500 text-sm mt-1 max-w-xs mx-auto">
-            Your coach will assign a program to your account. Check back soon or message them directly.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {programs.map(prog => (
-            <ProgramCard key={prog.id} program={prog} />
-          ))}
-        </div>
+      {/* Tab toggle */}
+      <div className="flex bg-gray-900 border border-gray-800 rounded-xl p-1 mb-5">
+        <button
+          onClick={() => setTab('assigned')}
+          className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'assigned' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-white'}`}
+        >
+          Gym Programs
+        </button>
+        <button
+          onClick={() => setTab('purchased')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm font-bold transition-all ${tab === 'purchased' ? 'bg-orange-500 text-white' : 'text-gray-500 hover:text-white'}`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          Purchased
+          {purchasedCount > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-black ${tab === 'purchased' ? 'bg-white/20' : 'bg-orange-500/20 text-orange-400'}`}>
+              {purchasedCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Assigned tab */}
+      {tab === 'assigned' && (
+        programs.length === 0 ? (
+          <div className="card text-center py-14">
+            <BookOpen className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-300 font-semibold">No programs assigned yet</p>
+            <p className="text-gray-500 text-sm mt-1 max-w-xs mx-auto">
+              Your coach will assign a program to your account. Check back soon or message them directly.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {programs.map(prog => (
+              <ProgramCard key={prog.id} program={prog} />
+            ))}
+          </div>
+        )
+      )}
+
+      {/* Purchased tab */}
+      {tab === 'purchased' && (
+        purchasedListings.length === 0 ? (
+          <div className="card text-center py-14">
+            <ShoppingBag className="w-12 h-12 text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-300 font-semibold">No purchased programs yet</p>
+            <p className="text-gray-500 text-sm mt-1 mb-5">
+              Browse the store to find coach-designed programs for every goal
+            </p>
+            <button
+              onClick={() => navigate('/store')}
+              className="btn-primary px-6 py-2.5 font-bold inline-flex items-center gap-2"
+            >
+              <ShoppingBag className="w-4 h-4" /> Browse the Store
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {purchasedListings.map(listing => (
+              <PurchasedCard key={listing.id} listing={listing} />
+            ))}
+            <button
+              onClick={() => navigate('/store')}
+              className="w-full py-3 border border-dashed border-gray-700 hover:border-orange-500/40 hover:text-orange-400 text-gray-500 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            >
+              <ShoppingBag className="w-4 h-4" /> Browse More Programs
+            </button>
+          </div>
+        )
       )}
     </div>
   )

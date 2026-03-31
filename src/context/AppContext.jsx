@@ -61,6 +61,110 @@ const SEED_USERS = [
   },
 ]
 
+// ─── Seed Program Listings ────────────────────────────────────────────────────
+const mk = (id, reps, weight) => ({ id, reps, weight })
+const ex = (id, name, sets, reps, weight, notes = '') => ({
+  id, name, notes, demoUrl: '', groupId: null, groupType: null, groupDuration: null,
+  sets: String(sets), reps: String(reps), targetWeight: String(weight),
+  setsData: Array.from({ length: sets }, (_, i) => mk(`${id}-s${i}`, String(reps), String(weight))),
+})
+
+const SEED_LISTINGS = [
+  {
+    id: 'listing-1', coachId: 'coach-1', gymId: null, coachName: 'Coach Mike',
+    title: '8-Week Strength Foundation',
+    shortDesc: 'Build serious foundational strength with progressive overload. 3 days/week, big 3 compound lifts.',
+    description: 'This 8-week program is designed for athletes ready to build real, lasting strength. Using squat, bench, and deadlift as the backbone with structured progressive overload, you\'ll add weight every week.\n\nPerfect for: beginners transitioning to intermediate, athletes coming off a break, or anyone looking to reset on a solid foundation.\n\nIncludes: Warm-up protocols, accessory work, coach notes, and weekly progression guidance.',
+    price: 49, category: 'strength', level: 'beginner',
+    durationWeeks: 8, daysPerWeek: 3, thumbnail: '🏋️', isPublished: true,
+    weeks: [
+      { weekNum: 1, workouts: [
+        { id: 'lw-1-1', day: 'Monday', title: 'Lower Body — Squat Focus', exercises: [
+          ex('le-1','Back Squat',3,5,135,'Drive through heels, chest tall'),
+          ex('le-2','Romanian Deadlift',3,8,95,'Hinge at the hip, soft knees'),
+          ex('le-3','Walking Lunge',3,10,0,'Bodyweight or light dumbbells'),
+        ]},
+        { id: 'lw-1-2', day: 'Wednesday', title: 'Upper Body — Press Focus', exercises: [
+          ex('le-4','Bench Press',3,5,115,'Controlled descent, explode up'),
+          ex('le-5','Overhead Press',3,8,65,'No lower-back arch'),
+          ex('le-6','Dumbbell Row',3,10,50,'Pull elbow to pocket'),
+        ]},
+        { id: 'lw-1-3', day: 'Friday', title: 'Full Body — Deadlift Focus', exercises: [
+          ex('le-7','Deadlift',3,5,185,'Bar stays close to legs the whole way'),
+          ex('le-8','Pull Up',3,5,0,'Full hang to chin over bar'),
+          ex('le-9','Dumbbell Curl',3,12,30,''),
+        ]},
+      ]},
+      { weekNum: 2, workouts: [
+        { id: 'lw-2-1', day: 'Monday', title: 'Lower Body — Squat Focus', exercises: [
+          ex('le-10','Back Squat',3,5,140,'Add 5 lbs from last week'),
+          ex('le-11','Romanian Deadlift',3,8,100,''),
+          ex('le-12','Walking Lunge',3,12,0,''),
+        ]},
+        { id: 'lw-2-2', day: 'Wednesday', title: 'Upper Body — Press Focus', exercises: [
+          ex('le-13','Bench Press',3,5,120,''),
+          ex('le-14','Overhead Press',3,8,70,''),
+          ex('le-15','Dumbbell Row',3,10,55,''),
+        ]},
+        { id: 'lw-2-3', day: 'Friday', title: 'Full Body — Deadlift Focus', exercises: [
+          ex('le-16','Deadlift',3,5,195,''),
+          ex('le-17','Pull Up',3,5,0,''),
+          ex('le-18','Dumbbell Curl',3,12,32.5,''),
+        ]},
+      ]},
+    ],
+    createdAt: '2024-01-15T00:00:00.000Z',
+  },
+  {
+    id: 'listing-2', coachId: 'coach-1', gymId: null, coachName: 'Coach Mike',
+    title: '4-Week Shred Challenge',
+    shortDesc: 'FREE! 4 weeks of high-intensity conditioning — torch fat, build endurance, feel incredible.',
+    description: 'Free program — share it with anyone!\n\nThis 4-week challenge combines HIIT, conditioning circuits, and strength work to maximize fat loss while preserving muscle. Every week ramps up intensity.\n\nNo barbell required. Dumbbells and bodyweight only. Works at home or in the gym.',
+    price: 0, category: 'conditioning', level: 'intermediate',
+    durationWeeks: 4, daysPerWeek: 4, thumbnail: '🔥', isPublished: true,
+    weeks: [
+      { weekNum: 1, workouts: [
+        { id: 'lw-3-1', day: 'Monday', title: 'Metabolic Circuit A', exercises: [
+          ex('le-19','Burpee',4,15,0,'30s rest between rounds'),
+          ex('le-20','Jump Squat',4,20,0,''),
+          ex('le-21','Mountain Climber',4,30,0,'Count each leg as 1'),
+        ]},
+        { id: 'lw-3-2', day: 'Tuesday', title: 'Dumbbell Strength', exercises: [
+          ex('le-22','Dumbbell Squat',3,15,40,''),
+          ex('le-23','Dumbbell Press',3,12,35,''),
+          ex('le-24','Dumbbell Row',3,12,40,''),
+        ]},
+      ]},
+    ],
+    createdAt: '2024-02-01T00:00:00.000Z',
+  },
+  {
+    id: 'listing-3', coachId: 'coach-1', gymId: null, coachName: 'Coach Mike',
+    title: '12-Week Muscle Builder',
+    shortDesc: 'Hypertrophy-focused upper/lower split. 4 days/week. Designed to pack on size.',
+    description: 'The most comprehensive muscle-building program in the store. 12 weeks, 4 days/week, upper/lower split built around proven hypertrophy principles.\n\nProgressive volume overload, strategic deload weeks at weeks 4, 8, and 12, and targeted accessory work to bring up every muscle group.\n\nIncludes: detailed exercise notes, warm-up protocols, and RPE targets.',
+    price: 79, category: 'muscle', level: 'intermediate',
+    durationWeeks: 12, daysPerWeek: 4, thumbnail: '💪', isPublished: true,
+    weeks: [
+      { weekNum: 1, workouts: [
+        { id: 'lw-4-1', day: 'Monday', title: 'Upper A — Horizontal Push/Pull', exercises: [
+          ex('le-25','Bench Press',4,8,135,'RPE 7 — leave some in the tank'),
+          ex('le-26','Barbell Row',4,8,115,'Chest to pad, controlled lower'),
+          ex('le-27','Incline Dumbbell Press',3,12,60,''),
+          ex('le-28','Cable Row',3,12,0,''),
+        ]},
+        { id: 'lw-4-2', day: 'Tuesday', title: 'Lower A — Squat Focus', exercises: [
+          ex('le-29','Back Squat',4,8,155,'RPE 7'),
+          ex('le-30','Romanian Deadlift',3,10,135,''),
+          ex('le-31','Leg Press',3,12,270,''),
+          ex('le-32','Leg Curl',3,12,0,''),
+        ]},
+      ]},
+    ],
+    createdAt: '2024-03-10T00:00:00.000Z',
+  },
+]
+
 const getWeekDate = (offset = 0) => {
   const d = new Date()
   const day = d.getDay()
@@ -180,7 +284,7 @@ const loadState = () => {
 
 const getInitialState = () => {
   const saved = loadState()
-  if (saved) return { gyms: [], programs: [], notifications: [], benchmarkDefs: [], benchmarkEntries: [], habitDefs: [], habitLogs: [], journalEntries: [], ...saved }
+  if (saved) return { gyms: [], programs: [], notifications: [], benchmarkDefs: [], benchmarkEntries: [], habitDefs: [], habitLogs: [], journalEntries: [], programListings: SEED_LISTINGS, purchases: [], ...saved }
   return {
     currentUserId: null,
     gyms: [SEED_GYM],
@@ -196,6 +300,8 @@ const getInitialState = () => {
     habitDefs: [],
     habitLogs: [],
     journalEntries: [],
+    programListings: SEED_LISTINGS,
+    purchases: [],
   }
 }
 
@@ -574,6 +680,49 @@ function reducer(state, action) {
         ...state,
         benchmarkEntries: (state.benchmarkEntries || []).filter(e => e.id !== action.entryId),
       }
+
+    // ── Program Store ──────────────────────────────────────────────────────
+    case 'ADD_PROGRAM_LISTING': {
+      const listing = {
+        ...action.listing,
+        id: 'listing-' + Date.now(),
+        coachId: state.currentUserId,
+        coachName: state.users.find(u => u.id === state.currentUserId)?.name || 'Coach',
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, programListings: [...(state.programListings || []), listing] }
+    }
+
+    case 'UPDATE_PROGRAM_LISTING':
+      return {
+        ...state,
+        programListings: (state.programListings || []).map(l =>
+          l.id === action.listingId ? { ...l, ...action.updates } : l
+        ),
+      }
+
+    case 'DELETE_PROGRAM_LISTING':
+      return {
+        ...state,
+        programListings: (state.programListings || []).filter(l => l.id !== action.listingId),
+        purchases: (state.purchases || []).filter(p => p.listingId !== action.listingId),
+      }
+
+    case 'PURCHASE_LISTING': {
+      // Prevent duplicate purchases
+      const already = (state.purchases || []).some(
+        p => p.listingId === action.listingId && p.buyerId === state.currentUserId
+      )
+      if (already) return state
+      const purchase = {
+        id: 'purchase-' + Date.now(),
+        listingId: action.listingId,
+        buyerId: state.currentUserId,
+        pricePaid: action.price,
+        purchasedAt: new Date().toISOString(),
+      }
+      return { ...state, purchases: [...(state.purchases || []), purchase] }
+    }
 
     // ── Habits ─────────────────────────────────────────────────────────────
     case 'ADD_HABIT_DEF': {
