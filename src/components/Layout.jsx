@@ -1,13 +1,19 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList, Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X, Target } from 'lucide-react'
+import {
+  Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList,
+  Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X,
+  Target, Menu, LogOut,
+} from 'lucide-react'
 import { useState } from 'react'
 
 export default function Layout({ children }) {
   const { currentUser, currentGym, dispatch } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
   const [codeCopied, setCodeCopied] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
 
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' })
@@ -39,12 +45,14 @@ export default function Layout({ children }) {
   const unreadNotifs = myNotifs.filter(n => !n.read).length
 
   const openNotifs = () => {
+    setMoreOpen(false)
     setNotifOpen(true)
     if (unreadNotifs > 0) {
       dispatch({ type: 'MARK_NOTIFS_READ', gymId: currentUser.gymId, userId: currentUser.id, forRole: currentUser.role })
     }
   }
 
+  // ── Full nav (desktop sidebar) ────────────────────────────────────────────
   const memberNav = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Workouts' },
     { to: '/my-programs', icon: BookOpen, label: 'Programs' },
@@ -68,9 +76,47 @@ export default function Layout({ children }) {
 
   const navItems = currentUser.role === 'coach' ? coachNav : memberNav
 
+  // ── Mobile: 3 primary tabs + "More" ──────────────────────────────────────
+  const memberPrimary = [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Workouts' },
+    { to: '/my-programs', icon: BookOpen, label: 'Programs' },
+    { to: '/messages', icon: Mail, label: 'Messages', badge: unreadDMs },
+  ]
+
+  const coachPrimary = [
+    { to: '/coach', icon: ClipboardList, label: 'Dashboard' },
+    { to: '/members', icon: UsersRound, label: 'Members' },
+    { to: '/messages', icon: Mail, label: 'Messages', badge: unreadDMs },
+  ]
+
+  const memberMore = [
+    { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
+    { to: '/stats', icon: TrendingUp, label: 'Volume' },
+    { to: '/community', icon: Users, label: 'Community' },
+    { to: '/profile', icon: UserCircle, label: 'Profile' },
+  ]
+
+  const coachMore = [
+    { to: '/benchmarks', icon: Target, label: 'Benchmarks' },
+    { to: '/programs', icon: Layers, label: 'Programs' },
+    { to: '/stats', icon: TrendingUp, label: 'Volume' },
+    { to: '/community', icon: Users, label: 'Community' },
+    { to: '/profile', icon: UserCircle, label: 'Profile' },
+  ]
+
+  const mobilePrimary = currentUser.role === 'coach' ? coachPrimary : memberPrimary
+  const mobileMore = currentUser.role === 'coach' ? coachMore : memberMore
+
+  // Badge on "More" button — unread notifications (members)
+  const moreBadge = currentUser.role !== 'coach' ? unreadNotifs : 0
+
+  // Is the current route inside the "more" list?
+  const moreRoutes = mobileMore.map(i => i.to)
+  const moreIsActive = moreRoutes.includes(location.pathname)
+
   return (
     <div className="min-h-screen bg-black pb-20 md:pb-0 md:flex">
-      {/* Sidebar (desktop) */}
+      {/* ── Desktop Sidebar ── */}
       <aside className="hidden md:flex flex-col w-56 min-h-screen bg-gray-900 border-r border-gray-700 fixed left-0 top-0 bottom-0">
 
         {/* Gym name */}
@@ -184,20 +230,21 @@ export default function Layout({ children }) {
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* ── Main content ── */}
       <main className="flex-1 md:ml-56">
         {children}
       </main>
 
-      {/* Bottom nav (mobile) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 z-40">
-        <div className="flex">
-          {navItems.map(({ to, icon: Icon, label, badge }) => (
+      {/* ── Mobile Bottom Nav (4 tabs) ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-800 z-40">
+        <div className="flex items-stretch" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+          {/* Primary tabs */}
+          {mobilePrimary.map(({ to, icon: Icon, label, badge }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${isActive ? 'text-orange-400' : 'text-gray-500'}`
+                `flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors ${isActive ? 'text-orange-400' : 'text-gray-500'}`
               }
             >
               <div className="relative">
@@ -211,32 +258,126 @@ export default function Layout({ children }) {
               {label}
             </NavLink>
           ))}
-          {/* Bell button in mobile nav — members only */}
-          {currentUser.role !== 'coach' && (
-            <button
-              onClick={openNotifs}
-              className="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium text-gray-500"
-            >
-              <div className="relative">
-                <Bell className="w-5 h-5" />
-                {unreadNotifs > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
-                    {unreadNotifs}
-                  </span>
-                )}
-              </div>
-              Alerts
-            </button>
-          )}
+
+          {/* More button */}
+          <button
+            onClick={() => setMoreOpen(true)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1 py-3 text-xs font-semibold transition-colors ${moreIsActive ? 'text-orange-400' : 'text-gray-500'}`}
+          >
+            <div className="relative">
+              <Menu className="w-5 h-5" />
+              {moreBadge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                  {moreBadge}
+                </span>
+              )}
+            </div>
+            More
+          </button>
         </div>
       </nav>
 
-      {/* Notification panel */}
+      {/* ── More Drawer (mobile) ── */}
+      {moreOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex items-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70"
+            onClick={() => setMoreOpen(false)}
+          />
+
+          {/* Sheet */}
+          <div className="relative w-full bg-gray-900 rounded-t-2xl border-t border-gray-800 shadow-2xl z-10 overflow-hidden"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-gray-700" />
+            </div>
+
+            {/* User info */}
+            <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-800">
+              <div className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-sm font-bold text-orange-400 flex-shrink-0">
+                {currentUser.initials}
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-white text-sm truncate">{currentUser.name}</p>
+                <p className="text-xs text-gray-500">
+                  {currentGym?.name ?? 'Gymi'} · {currentUser.role === 'coach' ? 'Coach' : 'Member'}
+                </p>
+              </div>
+              <button
+                onClick={() => setMoreOpen(false)}
+                className="ml-auto text-gray-600 hover:text-white transition-colors p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* More nav grid */}
+            <div className="grid grid-cols-4 gap-px bg-gray-800 border-b border-gray-800">
+              {mobileMore.map(({ to, icon: Icon, label, badge }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setMoreOpen(false)}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center gap-2 py-5 bg-gray-900 transition-colors ${isActive ? 'text-orange-400' : 'text-gray-400 hover:text-white'}`
+                  }
+                >
+                  <div className="relative">
+                    <Icon className="w-6 h-6" />
+                    {badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                        {badge}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs font-medium">{label}</span>
+                </NavLink>
+              ))}
+            </div>
+
+            {/* Notifications row — members only */}
+            {currentUser.role !== 'coach' && (
+              <button
+                onClick={openNotifs}
+                className="w-full flex items-center gap-3 px-5 py-4 border-b border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/60 transition-colors"
+              >
+                <div className="relative">
+                  <Bell className="w-5 h-5" />
+                  {unreadNotifs > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-orange-500 rounded-full text-[10px] text-white flex items-center justify-center font-bold">
+                      {unreadNotifs}
+                    </span>
+                  )}
+                </div>
+                <span className="text-sm font-medium">Notifications</span>
+                {unreadNotifs > 0 && (
+                  <span className="ml-auto text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full font-bold">
+                    {unreadNotifs} new
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Sign out */}
+            <button
+              onClick={() => { setMoreOpen(false); handleLogout() }}
+              className="w-full flex items-center gap-3 px-5 py-4 text-gray-500 hover:text-red-400 hover:bg-gray-800/60 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-sm font-medium">Sign out</span>
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── Notification panel ── */}
       {notifOpen && (
         <div className="fixed inset-0 z-50 flex items-start justify-end md:justify-end">
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60" onClick={() => setNotifOpen(false)} />
-          {/* Panel */}
           <div className="relative z-10 w-full max-w-sm h-full md:h-auto md:max-h-[80vh] bg-gray-900 border-l border-gray-700 md:border md:rounded-xl md:mt-4 md:mr-4 shadow-2xl flex flex-col">
             <div className="flex items-center justify-between px-4 py-4 border-b border-gray-800 flex-shrink-0">
               <h2 className="font-black text-white text-lg">Notifications</h2>
