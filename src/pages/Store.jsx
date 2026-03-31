@@ -26,7 +26,8 @@ const LEVEL_STYLES = {
 }
 
 const THUMBNAIL_OPTIONS = ['🏋️','💪','🔥','⚡','🏃','🌱','🎯','🏆','💥','🧠','🦾','🚀']
-const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const FULL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+const SHORT_DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 const WEEK_OPTIONS = [4,6,8,10,12,16,20,24]
 
 // ─── Program Card ─────────────────────────────────────────────────────────────
@@ -274,101 +275,163 @@ function DetailModal({ listing, onClose, purchased, loggedIn, onPurchase }) {
   )
 }
 
-// ─── Workout builder inside a week ────────────────────────────────────────────
-function WorkoutEditor({ workout, onChange, onDelete }) {
-  const [exercises, setExercises] = useState(workout.exercises || [newEx()])
-  const [day, setDay] = useState(workout.day || 'Monday')
-  const [title, setTitle] = useState(workout.title || '')
+// ─── Day workout editor (full-screen modal) ───────────────────────────────────
+function DayWorkoutModal({ weekNum, day, workout, onSave, onClose, onDelete }) {
+  const [title, setTitle] = useState(workout?.title || '')
+  const [exercises, setExercises] = useState(
+    workout?.exercises?.length ? workout.exercises : [newEx()]
+  )
 
-  const sync = (newExs = exercises, newDay = day, newTitle = title) => {
-    onChange({ ...workout, day: newDay, title: newTitle, exercises: newExs })
+  const handleSave = () => {
+    if (!title.trim()) { alert('Please add a workout title'); return }
+    onSave({ id: workout?.id || 'lw-' + Date.now(), day, title: title.trim(), exercises })
   }
 
   return (
-    <div className="border border-gray-700 rounded-xl p-3 space-y-3 bg-gray-800/30">
-      <div className="flex items-center gap-2">
-        <select
-          className="input text-sm w-32 flex-shrink-0"
-          value={day}
-          onChange={e => { setDay(e.target.value); sync(exercises, e.target.value, title) }}
-        >
-          {DAYS.map(d => <option key={d} value={d}>{d}</option>)}
-        </select>
-        <input
-          className="input text-sm flex-1"
-          placeholder="Workout title *"
-          value={title}
-          onChange={e => { setTitle(e.target.value); sync(exercises, day, e.target.value) }}
-        />
-        <button type="button" onClick={onDelete} className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
-          <Trash2 className="w-4 h-4" />
+    <div className="fixed inset-0 z-[70] bg-black flex flex-col">
+      {/* Header */}
+      <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gray-800 bg-gray-900">
+        <button onClick={onClose} className="p-1.5 text-gray-500 hover:text-white transition-colors">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-gray-500 font-medium">Week {weekNum}</p>
+          <p className="text-sm font-black text-white">{day}</p>
+        </div>
+        {onDelete && (
+          <button onClick={onDelete}
+            className="p-2 text-gray-600 hover:text-red-400 transition-colors">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+        <button onClick={handleSave} className="btn-primary px-4 py-2 text-sm font-bold">
+          Save
         </button>
       </div>
-      <ExerciseBuilder
-        exercises={exercises}
-        setExercises={(fn) => {
-          const newExs = typeof fn === 'function' ? fn(exercises) : fn
-          setExercises(newExs)
-          sync(newExs, day, title)
-        }}
-      />
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-lg mx-auto w-full">
+        <div>
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1 block">
+            Workout Title
+          </label>
+          <input
+            className="input text-sm w-full"
+            placeholder="e.g. Upper Body — Press Focus"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            autoFocus
+          />
+        </div>
+        <ExerciseBuilder exercises={exercises} setExercises={setExercises} />
+      </div>
     </div>
   )
 }
 
-// ─── Week builder ─────────────────────────────────────────────────────────────
-function WeekSection({ week, onChange, onDelete }) {
-  const [open, setOpen] = useState(week.weekNum <= 2)
+// ─── Week calendar grid ───────────────────────────────────────────────────────
+function WeekCalendarView({ week, onChange }) {
+  const [editingDay, setEditingDay] = useState(null)
 
-  const addWorkout = () => {
-    const id = 'lw-' + Date.now()
-    onChange({ ...week, workouts: [...week.workouts, { id, day: 'Monday', title: '', exercises: [newEx()] }] })
+  const getWorkout = (day) => week.workouts.find(w => w.day === day) || null
+
+  const handleSave = (saved) => {
+    const exists = week.workouts.some(w => w.day === editingDay)
+    const newWorkouts = exists
+      ? week.workouts.map(w => w.day === editingDay ? saved : w)
+      : [...week.workouts, saved]
+    onChange({ ...week, workouts: newWorkouts })
+    setEditingDay(null)
   }
 
-  const updateWorkout = (idx, updated) => {
-    const workouts = week.workouts.map((w, i) => i === idx ? updated : w)
-    onChange({ ...week, workouts })
-  }
-
-  const deleteWorkout = (idx) => {
-    onChange({ ...week, workouts: week.workouts.filter((_, i) => i !== idx) })
+  const handleDelete = () => {
+    onChange({ ...week, workouts: week.workouts.filter(w => w.day !== editingDay) })
+    setEditingDay(null)
   }
 
   return (
-    <div className="border border-gray-800 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-800/50">
-        <button
-          type="button"
-          onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-2 flex-1 text-left"
-        >
-          <span className="font-bold text-white text-sm">Week {week.weekNum}</span>
-          <span className="text-xs text-gray-500">{week.workouts.length} workout{week.workouts.length !== 1 ? 's' : ''}</span>
-          {open ? <ChevronUp className="w-4 h-4 text-gray-600 ml-auto" /> : <ChevronDown className="w-4 h-4 text-gray-600 ml-auto" />}
-        </button>
-        <button type="button" onClick={onDelete}
-          className="ml-3 text-gray-600 hover:text-red-400 transition-colors flex-shrink-0">
-          <Trash2 className="w-4 h-4" />
-        </button>
+    <>
+      {/* 7-column calendar grid */}
+      <div className="grid grid-cols-7 gap-1.5">
+        {FULL_DAYS.map((day, i) => {
+          const wo = getWorkout(day)
+          return (
+            <div key={day} className="flex flex-col items-center gap-1">
+              {/* Day label */}
+              <span className="text-[10px] text-gray-600 font-semibold uppercase tracking-wide">
+                {SHORT_DAYS[i]}
+              </span>
+              {/* Day cell */}
+              <button
+                type="button"
+                onClick={() => setEditingDay(day)}
+                className={`w-full rounded-xl flex flex-col items-center justify-center p-1.5 transition-all border min-h-[64px] ${
+                  wo
+                    ? 'bg-orange-500/10 border-orange-500/40 hover:border-orange-400/70 hover:bg-orange-500/15'
+                    : 'bg-gray-800/30 border-gray-700/40 border-dashed hover:border-gray-600 hover:bg-gray-800/60'
+                }`}
+              >
+                {wo ? (
+                  <>
+                    <span className="text-[9px] font-bold text-orange-300 leading-tight text-center line-clamp-3 w-full">
+                      {wo.title}
+                    </span>
+                    <span className="text-[8px] text-gray-500 mt-1">
+                      {wo.exercises?.length || 0} ex
+                    </span>
+                  </>
+                ) : (
+                  <Plus className="w-3.5 h-3.5 text-gray-600" />
+                )}
+              </button>
+            </div>
+          )
+        })}
       </div>
 
-      {open && (
-        <div className="p-4 space-y-3">
-          {week.workouts.map((wo, i) => (
-            <WorkoutEditor
-              key={wo.id}
-              workout={wo}
-              onChange={(updated) => updateWorkout(i, updated)}
-              onDelete={() => deleteWorkout(i)}
-            />
-          ))}
-          <button type="button" onClick={addWorkout}
-            className="w-full py-2 border border-dashed border-gray-700 hover:border-orange-500/40 hover:text-orange-400 text-gray-500 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1">
-            <Plus className="w-3.5 h-3.5" /> Add Workout to Week {week.weekNum}
-          </button>
+      {/* Workout list summary below calendar */}
+      {week.workouts.length > 0 && (
+        <div className="mt-4 space-y-2">
+          <p className="text-xs text-gray-600 font-medium uppercase tracking-wide">
+            {week.workouts.length} workout{week.workouts.length !== 1 ? 's' : ''} this week
+          </p>
+          {FULL_DAYS.filter(d => getWorkout(d)).map(day => {
+            const wo = getWorkout(day)
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setEditingDay(day)}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 rounded-xl text-left transition-colors"
+              >
+                <div className="w-8 h-8 rounded-lg bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+                  <span className="text-[10px] font-black text-orange-400">{day.slice(0, 3).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{wo.title}</p>
+                  <p className="text-xs text-gray-500">
+                    {wo.exercises?.length || 0} exercise{(wo.exercises?.length || 0) !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Pencil className="w-3.5 h-3.5 text-gray-600 flex-shrink-0" />
+              </button>
+            )
+          })}
         </div>
       )}
-    </div>
+
+      {/* Day editor */}
+      {editingDay && (
+        <DayWorkoutModal
+          weekNum={week.weekNum}
+          day={editingDay}
+          workout={getWorkout(editingDay)}
+          onSave={handleSave}
+          onClose={() => setEditingDay(null)}
+          onDelete={getWorkout(editingDay) ? handleDelete : null}
+        />
+      )}
+    </>
   )
 }
 
@@ -385,16 +448,21 @@ function ListingEditor({ existing, onClose, onSave }) {
   const [thumbnail, setThumbnail] = useState(existing?.thumbnail || '🏋️')
   const [isPublished, setIsPublished] = useState(existing?.isPublished ?? false)
   const [weeks, setWeeks] = useState(existing?.weeks || [
-    { weekNum: 1, workouts: [{ id: 'lw-' + Date.now(), day: 'Monday', title: '', exercises: [newEx()] }] }
+    { weekNum: 1, workouts: [] }
   ])
   const [tab, setTab] = useState('info')
+  const [activeWeekIdx, setActiveWeekIdx] = useState(0)
 
   const addWeek = () => {
     const nextNum = (weeks[weeks.length - 1]?.weekNum || 0) + 1
-    setWeeks(prev => [...prev, {
-      weekNum: nextNum,
-      workouts: [{ id: 'lw-' + Date.now(), day: 'Monday', title: '', exercises: [newEx()] }],
-    }])
+    setWeeks(prev => [...prev, { weekNum: nextNum, workouts: [] }])
+    setActiveWeekIdx(weeks.length) // jump to newly added week
+  }
+
+  const deleteWeek = (idx) => {
+    if (weeks.length <= 1) { alert('You need at least 1 week'); return }
+    setWeeks(ws => ws.filter((_, i) => i !== idx))
+    setActiveWeekIdx(Math.max(0, idx - 1))
   }
 
   const handleSave = (publish = null) => {
@@ -543,22 +611,62 @@ function ListingEditor({ existing, onClose, onSave }) {
 
         {/* ── Content tab ── */}
         {tab === 'content' && (
-          <div className="p-5 space-y-3 max-w-lg mx-auto">
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Build your program week by week. Members see exercise details only after purchasing.
-            </p>
-            {weeks.map((week, i) => (
-              <WeekSection
-                key={week.weekNum}
-                week={week}
-                onChange={(updated) => setWeeks(ws => ws.map((w, wi) => wi === i ? updated : w))}
-                onDelete={() => setWeeks(ws => ws.filter((_, wi) => wi !== i))}
+          <div className="flex flex-col h-full">
+
+            {/* Week selector bar */}
+            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-gray-900/60 overflow-x-auto">
+              {weeks.map((week, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveWeekIdx(i)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all ${
+                    activeWeekIdx === i
+                      ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
+                      : 'bg-gray-800 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
+                  }`}
+                >
+                  W{week.weekNum}
+                  {week.workouts.length > 0 && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${activeWeekIdx === i ? 'bg-white/20' : 'bg-gray-700 text-gray-400'}`}>
+                      {week.workouts.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+              {/* Add week */}
+              <button
+                type="button"
+                onClick={addWeek}
+                className="flex-shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-bold bg-gray-800 border border-dashed border-gray-600 text-gray-500 hover:text-orange-400 hover:border-orange-500/40 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" /> Week
+              </button>
+            </div>
+
+            {/* Active week calendar */}
+            <div className="flex-1 overflow-y-auto p-4 max-w-lg mx-auto w-full">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-black text-white text-base">Week {weeks[activeWeekIdx]?.weekNum}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Tap a day to add or edit a workout</p>
+                </div>
+                {weeks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => deleteWeek(activeWeekIdx)}
+                    className="text-xs text-gray-600 hover:text-red-400 transition-colors flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Remove week
+                  </button>
+                )}
+              </div>
+
+              <WeekCalendarView
+                week={weeks[activeWeekIdx]}
+                onChange={(updated) => setWeeks(ws => ws.map((w, i) => i === activeWeekIdx ? updated : w))}
               />
-            ))}
-            <button type="button" onClick={addWeek}
-              className="w-full py-3.5 border border-dashed border-gray-700 hover:border-orange-500/40 hover:text-orange-400 text-gray-500 rounded-2xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4" /> Add Week {weeks.length + 1}
-            </button>
+            </div>
           </div>
         )}
       </div>
