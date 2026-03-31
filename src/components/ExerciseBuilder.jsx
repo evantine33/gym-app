@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Plus, Trash2, Link2, GitMerge, X, Play } from 'lucide-react'
+import { Plus, Trash2, Link2, GitMerge, X, Play, Upload, Timer } from 'lucide-react'
 import { EXERCISE_LIBRARY, CATEGORY_COLORS } from '../data/exerciseLibrary'
+import { saveVideo } from '../utils/videoStore'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -22,6 +23,24 @@ export const GROUP_STYLES = {
     letterBg: 'bg-purple-500',
     divider: 'divide-purple-500/20',
     addText: 'text-purple-400 hover:bg-purple-500/10',
+  },
+  emom: {
+    label: 'EMOM',
+    border: 'border-emerald-500/40',
+    headerBg: 'bg-emerald-500/10',
+    badge: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+    letterBg: 'bg-emerald-600',
+    divider: 'divide-emerald-500/20',
+    addText: 'text-emerald-400 hover:bg-emerald-500/10',
+  },
+  amrap: {
+    label: 'AMRAP',
+    border: 'border-amber-500/40',
+    headerBg: 'bg-amber-500/10',
+    badge: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+    letterBg: 'bg-amber-600',
+    divider: 'divide-amber-500/20',
+    addText: 'text-amber-400 hover:bg-amber-500/10',
   },
 }
 
@@ -51,7 +70,7 @@ const newSetRow = (prev = {}) => ({
   weight: prev.weight || '',
 })
 
-// ─── New blank exercise — always starts with 3 set rows ───────────────────────
+// ─── New blank exercise ───────────────────────────────────────────────────────
 export const newEx = (extra = {}) => ({
   id: Date.now() + Math.random(),
   name: '',
@@ -60,6 +79,7 @@ export const newEx = (extra = {}) => ({
   notes: '',
   groupId: null,
   groupType: null,
+  groupDuration: null,
   // legacy fields kept for backward compat
   sets: '',
   reps: '',
@@ -118,7 +138,6 @@ function ExerciseNameInput({ value, onChangeName, onSelectLibrary }) {
               onMouseDown={() => handleSelect(ex)}
               className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-gray-700/70 text-left transition-colors border-b border-gray-800 last:border-0 gap-3"
             >
-              {/* Name + category */}
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-sm text-white">
                   <HighlightMatch text={ex.name} query={value} />
@@ -127,18 +146,14 @@ function ExerciseNameInput({ value, onChangeName, onSelectLibrary }) {
                   {ex.category}
                 </span>
               </div>
-
-              {/* Video badge */}
               <span className="flex items-center gap-1 text-[10px] text-gray-500 flex-shrink-0">
                 <Play className="w-2.5 h-2.5" /> video
               </span>
             </button>
           ))}
-
-          {/* Custom hint at bottom */}
           <div className="px-3 py-2 border-t border-gray-800">
             <p className="text-[10px] text-gray-600">
-              Not listed? Keep typing to use your own name — you can add a custom video link below.
+              Not listed? Keep typing to use your own name — you can add a custom video link or upload below.
             </p>
           </div>
         </div>
@@ -150,6 +165,7 @@ function ExerciseNameInput({ value, onChangeName, onSelectLibrary }) {
 // ─── Single exercise field block ──────────────────────────────────────────────
 function ExerciseFields({ ex, onUpdate }) {
   const setsData = Array.isArray(ex.setsData) ? ex.setsData : []
+  const [uploading, setUploading] = useState(false)
 
   const addSet = () => {
     const last = setsData[setsData.length - 1]
@@ -165,10 +181,26 @@ function ExerciseFields({ ex, onUpdate }) {
     onUpdate('setsData', setsData.map(s => s.id === setId ? { ...s, [field]: val } : s))
   }
 
-  // When a library exercise is selected, fill name + demoUrl together
   const handleLibrarySelect = (libEx) => {
     onUpdate('name', libEx.name)
     onUpdate('demoUrl', libEx.demoUrl)
+  }
+
+  const handleVideoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const key = `video-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      await saveVideo(key, file)
+      onUpdate('demoUrl', `local://${key}`)
+    } catch (err) {
+      console.error('Video save failed', err)
+      alert('Could not save video. Try a shorter clip or use a URL instead.')
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
   }
 
   return (
@@ -230,14 +262,49 @@ function ExerciseFields({ ex, onUpdate }) {
         </button>
       </div>
 
-      {/* Demo URL — auto-filled from library, or coach enters manually */}
+      {/* Demo video — URL input or device upload */}
       <div className="col-span-2">
-        <input
-          className="input text-sm"
-          placeholder="Demo video URL (auto-filled from library)"
-          value={ex.demoUrl}
-          onChange={e => onUpdate('demoUrl', e.target.value)}
-        />
+        {ex.demoUrl?.startsWith('local://') ? (
+          /* Uploaded video indicator */
+          <div className="flex items-center gap-2 bg-gray-800/60 border border-emerald-700/40 rounded-xl px-3 py-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0" />
+            <span className="text-xs text-emerald-400 flex-1 truncate">Video saved on this device</span>
+            <button
+              type="button"
+              onClick={() => onUpdate('demoUrl', '')}
+              className="text-xs text-gray-500 hover:text-red-400 transition-colors flex-shrink-0"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          /* URL field + upload button */
+          <div className="flex gap-2">
+            <input
+              className="input text-sm flex-1 min-w-0"
+              placeholder="Demo video URL (YouTube…)"
+              value={ex.demoUrl}
+              onChange={e => onUpdate('demoUrl', e.target.value)}
+            />
+            <label
+              className={`flex items-center gap-1 px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-xl text-xs text-gray-400 cursor-pointer transition-colors flex-shrink-0 whitespace-nowrap ${uploading ? 'opacity-50 pointer-events-none' : ''}`}
+              title="Upload video from your device"
+            >
+              {uploading
+                ? <span className="text-orange-400 animate-pulse text-[11px]">Saving…</span>
+                : <><Upload className="w-3.5 h-3.5" /><span className="hidden sm:inline">Upload</span></>
+              }
+              <input
+                type="file"
+                accept="video/*"
+                capture="environment"
+                className="sr-only"
+                onChange={handleVideoUpload}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Notes */}
@@ -245,7 +312,7 @@ function ExerciseFields({ ex, onUpdate }) {
         <textarea
           className="input resize-none text-sm"
           rows={1}
-          placeholder="Coach notes..."
+          placeholder="Coach notes…"
           value={ex.notes}
           onChange={e => onUpdate('notes', e.target.value)}
         />
@@ -264,11 +331,16 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
 
   const ungroup = (groupId) =>
     setExercises(exs => exs.map(e =>
-      e.groupId === groupId ? { ...e, groupId: null, groupType: null } : e
+      e.groupId === groupId ? { ...e, groupId: null, groupType: null, groupDuration: null } : e
     ))
 
   const addToGroup = (groupId, groupType) =>
     setExercises(exs => [...exs, newEx({ groupId, groupType })])
+
+  const updateGroupConfig = (groupId, field, val) =>
+    setExercises(exs => exs.map(e =>
+      e.groupId === groupId ? { ...e, [field]: val } : e
+    ))
 
   const addStandalone = () =>
     setExercises(exs => [...exs, newEx()])
@@ -289,6 +361,25 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
       newEx({ groupId, groupType: 'circuit' }),
       newEx({ groupId, groupType: 'circuit' }),
       newEx({ groupId, groupType: 'circuit' }),
+    ])
+  }
+
+  const addEMOM = () => {
+    const groupId = 'grp-' + Date.now()
+    setExercises(exs => [
+      ...exs,
+      newEx({ groupId, groupType: 'emom', groupDuration: 20, setsData: [newSetRow()] }),
+      newEx({ groupId, groupType: 'emom', groupDuration: 20, setsData: [newSetRow()] }),
+    ])
+  }
+
+  const addAMRAP = () => {
+    const groupId = 'grp-' + Date.now()
+    setExercises(exs => [
+      ...exs,
+      newEx({ groupId, groupType: 'amrap', groupDuration: 10, setsData: [newSetRow()] }),
+      newEx({ groupId, groupType: 'amrap', groupDuration: 10, setsData: [newSetRow()] }),
+      newEx({ groupId, groupType: 'amrap', groupDuration: 10, setsData: [newSetRow()] }),
     ])
   }
 
@@ -319,8 +410,11 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
             )
           }
 
-          // ── Superset / Circuit ──
+          // ── Superset / Circuit / EMOM / AMRAP ──
           const style = GROUP_STYLES[item.kind] || GROUP_STYLES.superset
+          const isTimedGroup = item.kind === 'emom' || item.kind === 'amrap'
+          const groupDuration = item.exercises[0]?.groupDuration ?? (item.kind === 'emom' ? 20 : 10)
+
           return (
             <div key={item.groupId}
               className={`rounded-xl border ${style.border} overflow-hidden`}>
@@ -334,6 +428,27 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
                   <X className="w-3 h-3" /> Ungroup
                 </button>
               </div>
+
+              {/* Duration config for EMOM / AMRAP */}
+              {isTimedGroup && (
+                <div className={`flex items-center gap-2.5 px-3 py-2 border-b ${style.border} bg-black/20`}>
+                  <Timer className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                  <input
+                    type="number"
+                    min="1"
+                    max="999"
+                    className="w-14 bg-transparent border-b border-gray-600 text-white text-sm font-bold text-center outline-none focus:border-orange-500 transition-colors"
+                    value={groupDuration}
+                    onChange={e => updateGroupConfig(item.groupId, 'groupDuration', parseInt(e.target.value) || 1)}
+                    onClick={e => e.stopPropagation()}
+                  />
+                  <span className="text-xs text-gray-500">
+                    {item.kind === 'emom'
+                      ? `min · every minute on the minute`
+                      : `min · as many rounds as possible`}
+                  </span>
+                </div>
+              )}
 
               {/* Exercises */}
               <div className={`divide-y ${style.divider}`}>
@@ -359,7 +474,7 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
               <button type="button" onClick={() => addToGroup(item.groupId, item.kind)}
                 className={`w-full py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1 ${style.addText}`}>
                 <Plus className="w-3 h-3" />
-                Add exercise to {style.label.toLowerCase()}
+                Add exercise to {style.label}
               </button>
             </div>
           )
@@ -379,6 +494,14 @@ export default function ExerciseBuilder({ exercises, setExercises }) {
         <button type="button" onClick={addCircuit}
           className="flex items-center gap-1 text-xs text-gray-400 hover:text-purple-400 border border-dashed border-gray-700 hover:border-purple-500/40 rounded-lg px-3 py-1.5 transition-colors">
           <GitMerge className="w-3 h-3" /> Circuit
+        </button>
+        <button type="button" onClick={addEMOM}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-400 border border-dashed border-gray-700 hover:border-emerald-500/40 rounded-lg px-3 py-1.5 transition-colors">
+          <Timer className="w-3 h-3" /> EMOM
+        </button>
+        <button type="button" onClick={addAMRAP}
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-amber-400 border border-dashed border-gray-700 hover:border-amber-500/40 rounded-lg px-3 py-1.5 transition-colors">
+          <Timer className="w-3 h-3" /> AMRAP
         </button>
       </div>
     </div>

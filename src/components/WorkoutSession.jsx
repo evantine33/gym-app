@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   X, ChevronRight, ChevronLeft, CheckCircle2, Trophy,
-  Plus, Minus, Flame, Play, Star,
+  Plus, Minus, Flame, Play, Star, Timer,
 } from 'lucide-react'
 import { groupExercises, GROUP_STYLES } from './ExerciseBuilder'
+import { getVideo } from '../utils/videoStore'
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -18,10 +19,67 @@ function getYouTubeId(url) {
 // ─── Tappable video tile ──────────────────────────────────────────────────────
 function VideoTile({ url, name }) {
   const [open, setOpen] = useState(false)
-  if (!url) return null
-  const ytId = getYouTubeId(url)
+  const [localSrc, setLocalSrc] = useState(null)
 
-  // Non-embeddable URL (e.g. YouTube search) → open in new tab
+  // Load local device video from IndexedDB
+  useEffect(() => {
+    if (!url?.startsWith('local://')) return
+    const key = url.slice('local://'.length)
+    let objUrl = null
+    getVideo(key).then(blob => {
+      if (blob) {
+        objUrl = URL.createObjectURL(blob)
+        setLocalSrc(objUrl)
+      }
+    }).catch(() => {})
+    return () => { if (objUrl) URL.revokeObjectURL(objUrl) }
+  }, [url])
+
+  if (!url) return null
+
+  const ytId = getYouTubeId(url)
+  const isLocal = url.startsWith('local://')
+
+  // ── Local device video ──
+  if (isLocal) {
+    return (
+      <>
+        <button
+          onClick={() => localSrc && setOpen(true)}
+          className={`w-14 h-14 flex-shrink-0 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center transition-all ${localSrc ? 'hover:border-orange-500/50 hover:bg-gray-700' : 'opacity-50 cursor-wait'}`}
+          title={localSrc ? 'Watch demo' : 'Loading video…'}
+        >
+          <Play className={`w-5 h-5 fill-current ${localSrc ? 'text-orange-400 fill-orange-400' : 'text-gray-600'}`} />
+        </button>
+
+        {open && localSrc && (
+          <div className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center p-4"
+            onClick={() => setOpen(false)}>
+            <div className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-bold text-white truncate pr-4">{name}</h3>
+                <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-white flex-shrink-0">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="aspect-video rounded-2xl overflow-hidden bg-black">
+                <video
+                  src={localSrc}
+                  controls
+                  autoPlay
+                  playsInline
+                  className="w-full h-full"
+                />
+              </div>
+              <p className="text-xs text-gray-600 mt-2 text-center">Tap outside to close</p>
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  // ── Non-embeddable URL (e.g. YouTube search) → open in new tab ──
   if (!ytId) {
     return (
       <a href={url} target="_blank" rel="noreferrer"
@@ -32,9 +90,9 @@ function VideoTile({ url, name }) {
     )
   }
 
+  // ── YouTube thumbnail + embed ──
   return (
     <>
-      {/* Thumbnail tile */}
       <button onClick={() => setOpen(true)}
         className="w-14 h-14 flex-shrink-0 rounded-xl overflow-hidden relative border border-gray-700 hover:border-orange-500/60 transition-all group"
         title="Watch demo">
@@ -413,14 +471,27 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
           />
         )}
 
-        {/* Superset / Circuit */}
-        {(currentBlock.kind === 'superset' || currentBlock.kind === 'circuit') && (() => {
-          const style = GROUP_STYLES[currentBlock.kind]
+        {/* Superset / Circuit / EMOM / AMRAP */}
+        {(currentBlock.kind === 'superset' || currentBlock.kind === 'circuit' || currentBlock.kind === 'emom' || currentBlock.kind === 'amrap') && (() => {
+          const style = GROUP_STYLES[currentBlock.kind] || GROUP_STYLES.superset
+          const isTimedGroup = currentBlock.kind === 'emom' || currentBlock.kind === 'amrap'
+          const groupDuration = currentBlock.exercises[0]?.groupDuration
+
           return (
             <div>
-              <span className={`inline-flex items-center text-xs font-bold px-3 py-1 rounded-full mb-6 ${style.badge}`}>
-                {style.label} · {currentBlock.exercises.length} exercises
-              </span>
+              {/* Group badge */}
+              <div className="flex flex-wrap items-center gap-2 mb-5">
+                <span className={`inline-flex items-center text-xs font-bold px-3 py-1 rounded-full ${style.badge}`}>
+                  {style.label} · {currentBlock.exercises.length} exercises
+                </span>
+                {isTimedGroup && groupDuration && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full bg-gray-800 border border-gray-700 text-gray-300">
+                    <Timer className="w-3 h-3" />
+                    {groupDuration} min
+                    {currentBlock.kind === 'emom' ? ' · every minute' : ' · as many rounds'}
+                  </span>
+                )}
+              </div>
 
               <div className="space-y-10">
                 {currentBlock.exercises.map((ex, i) => (
