@@ -3,10 +3,43 @@ import { useApp } from '../context/AppContext'
 import {
   ShoppingBag, Plus, X, ChevronDown, ChevronUp, Tag, Users,
   Calendar, Dumbbell, Lock, Unlock, Check, Pencil, Trash2,
-  Star, ArrowLeft, Eye, EyeOff, ChevronRight,
+  Star, ArrowLeft, Eye, EyeOff, ChevronRight, ImagePlus,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ExerciseBuilder, { newEx } from '../components/ExerciseBuilder'
+
+// ─── Thumbnail helpers ────────────────────────────────────────────────────────
+function isPhoto(t) { return typeof t === 'string' && t.startsWith('data:') }
+
+// Compress an image File to a base64 JPEG at max 600px wide
+function compressImage(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 600
+        const ratio = Math.min(MAX / img.width, MAX / img.height, 1)
+        const canvas = document.createElement('canvas')
+        canvas.width  = Math.round(img.width  * ratio)
+        canvas.height = Math.round(img.height * ratio)
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+        resolve(canvas.toDataURL('image/jpeg', 0.72))
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+// Renders either an emoji or a real photo
+function ThumbnailDisplay({ thumb, className = '', emojiClass = 'text-5xl' }) {
+  if (isPhoto(thumb)) {
+    return <img src={thumb} alt="cover" className={`object-cover w-full h-full ${className}`} />
+  }
+  return <span className={emojiClass}>{thumb || '🏋️'}</span>
+}
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -39,8 +72,8 @@ function ProgramCard({ listing, onSelect, purchased, isCoach, onEdit }) {
       className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden cursor-pointer hover:border-orange-500/40 hover:bg-gray-900/80 transition-all group"
     >
       {/* Thumbnail */}
-      <div className="h-28 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-5xl relative">
-        {listing.thumbnail}
+      <div className="h-28 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-5xl relative overflow-hidden">
+        <ThumbnailDisplay thumb={listing.thumbnail} />
         {/* Price badge */}
         <div className={`absolute top-3 right-3 px-2.5 py-1 rounded-lg text-xs font-black ${listing.price === 0 ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>
           {listing.price === 0 ? 'FREE' : `$${listing.price}`}
@@ -110,7 +143,9 @@ function DetailModal({ listing, onClose, purchased, loggedIn, onPurchase }) {
         {/* Header */}
         <div className="flex-shrink-0 px-5 pt-5 pb-4 border-b border-gray-800">
           <div className="flex items-start gap-4">
-            <div className="text-4xl">{listing.thumbnail}</div>
+            <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0">
+              <ThumbnailDisplay thumb={listing.thumbnail} emojiClass="text-3xl" />
+            </div>
             <div className="flex-1 min-w-0">
               <h2 className="font-black text-white text-lg leading-tight">{listing.title}</h2>
               <p className="text-xs text-gray-500 mt-0.5">by {listing.coachName}</p>
@@ -244,7 +279,9 @@ function DetailModal({ listing, onClose, purchased, loggedIn, onPurchase }) {
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setConfirmOpen(false)} />
           <div className="relative w-full max-w-sm bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl z-10 p-6">
-            <div className="text-4xl text-center mb-4">{listing.thumbnail}</div>
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center mx-auto mb-4">
+              <ThumbnailDisplay thumb={listing.thumbnail} emojiClass="text-4xl" />
+            </div>
             <h3 className="font-black text-white text-lg text-center mb-1">{listing.title}</h3>
             <p className="text-3xl font-black text-orange-400 text-center mb-4">${listing.price}</p>
 
@@ -531,15 +568,51 @@ function ListingEditor({ existing, onClose, onSave }) {
 
             {/* Thumbnail */}
             <div>
-              <label className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2 block">Cover Icon</label>
-              <div className="flex flex-wrap gap-2">
-                {THUMBNAIL_OPTIONS.map(e => (
-                  <button key={e} type="button" onClick={() => setThumbnail(e)}
-                    className={`w-10 h-10 rounded-xl text-2xl flex items-center justify-center border transition-all ${thumbnail === e ? 'border-orange-500 bg-orange-500/20' : 'border-gray-700 bg-gray-800 hover:border-gray-600'}`}>
-                    {e}
+              <label className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2 block">Cover Image</label>
+
+              {/* Photo upload */}
+              {isPhoto(thumbnail) ? (
+                <div className="relative mb-3">
+                  <img src={thumbnail} alt="cover" className="w-full h-40 object-cover rounded-xl border border-gray-700" />
+                  <button
+                    type="button"
+                    onClick={() => setThumbnail('🏋️')}
+                    className="absolute top-2 right-2 w-7 h-7 bg-black/70 hover:bg-black rounded-full flex items-center justify-center text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                ))}
-              </div>
+                  <span className="absolute bottom-2 left-2 text-[10px] bg-green-500/80 text-white px-2 py-0.5 rounded-full font-bold">Photo set</span>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 w-full h-16 mb-3 rounded-xl border border-dashed border-gray-600 hover:border-orange-500/50 bg-gray-800 hover:bg-gray-800/80 cursor-pointer transition-all">
+                  <ImagePlus className="w-4 h-4 text-gray-400" />
+                  <span className="text-sm text-gray-400">Upload a photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0]
+                      if (file) setThumbnail(await compressImage(file))
+                    }}
+                  />
+                </label>
+              )}
+
+              {/* Emoji fallback */}
+              {!isPhoto(thumbnail) && (
+                <>
+                  <p className="text-[11px] text-gray-600 mb-2">Or pick an emoji icon:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {THUMBNAIL_OPTIONS.map(e => (
+                      <button key={e} type="button" onClick={() => setThumbnail(e)}
+                        className={`w-10 h-10 rounded-xl text-2xl flex items-center justify-center border transition-all ${thumbnail === e ? 'border-orange-500 bg-orange-500/20' : 'border-gray-700 bg-gray-800 hover:border-gray-600'}`}>
+                        {e}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Title */}
@@ -764,7 +837,9 @@ export default function Store() {
             <div className="space-y-2">
               {unpublished.map(listing => (
                 <div key={listing.id} className="flex items-center gap-3 bg-gray-900 border border-gray-800 border-dashed rounded-xl px-4 py-3">
-                  <span className="text-2xl">{listing.thumbnail}</span>
+                  <div className="w-9 h-9 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <ThumbnailDisplay thumb={listing.thumbnail} emojiClass="text-xl" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-white truncate">{listing.title}</p>
                     <p className="text-xs text-gray-500">Draft · {listing.weeks?.length || 0} weeks built</p>

@@ -310,7 +310,12 @@ function PurchasedCard({ listing }) {
     <div className="card">
       {/* Header */}
       <div className="flex items-start gap-4 mb-4">
-        <div className="text-4xl">{listing.thumbnail}</div>
+        <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-800 flex items-center justify-center flex-shrink-0">
+          {listing.thumbnail?.startsWith('data:')
+            ? <img src={listing.thumbnail} alt="cover" className="object-cover w-full h-full" />
+            : <span className="text-3xl">{listing.thumbnail || '🏋️'}</span>
+          }
+        </div>
         <div className="flex-1 min-w-0">
           <h2 className="font-bold text-white text-lg leading-tight">{listing.title}</h2>
           <p className="text-xs text-gray-500 mt-0.5">
