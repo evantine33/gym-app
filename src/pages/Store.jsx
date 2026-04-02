@@ -611,10 +611,10 @@ function ListingEditor({ existing, onClose, onSave }) {
 
         {/* ── Content tab ── */}
         {tab === 'content' && (
-          <div className="flex flex-col h-full">
+          <div>
 
             {/* Week selector bar */}
-            <div className="flex-shrink-0 flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-gray-900/60 overflow-x-auto">
+            <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-3 border-b border-gray-800 bg-gray-900 overflow-x-auto">
               {weeks.map((week, i) => (
                 <button
                   key={i}
@@ -645,7 +645,7 @@ function ListingEditor({ existing, onClose, onSave }) {
             </div>
 
             {/* Active week calendar */}
-            <div className="flex-1 overflow-y-auto p-4 max-w-lg mx-auto w-full">
+            <div className="p-4 max-w-lg mx-auto w-full">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-black text-white text-base">Week {weeks[activeWeekIdx]?.weekNum}</h3>
