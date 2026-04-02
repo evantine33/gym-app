@@ -1013,6 +1013,21 @@ export function AppProvider({ children }) {
       const { data, error } = await sbSignIn(email, password)
       if (error) throw error
       await hydrateFromSupabase(data.user.id, dispatch)
+      // Fallback: if profile row was missing, ensure user still gets logged in
+      if (!stateRef.current.users.find(u => u.id === data.user.id)) {
+        const fallbackName = data.user.email.split('@')[0]
+        dispatch({ type: 'HYDRATE_USER', user: {
+          id: data.user.id,
+          name: fallbackName,
+          email: data.user.email,
+          phone: '',
+          role: 'member',
+          initials: fallbackName.slice(0, 2).toUpperCase(),
+          gymId: null,
+          joinDate: new Date().toISOString().split('T')[0],
+        }})
+      }
+      dispatch({ type: 'LOGIN', userId: data.user.id })
       return data.user
     } finally {
       setAuthLoading(false)
