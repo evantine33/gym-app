@@ -71,7 +71,8 @@ function AppRoutes() {
   }
 
   // Fully set up → main app
-  const defaultRoute = currentUser.role === 'coach' ? '/coach' : '/dashboard'
+  const isCoachLike = currentUser.role === 'coach' || currentUser.role === 'staff'
+  const defaultRoute = isCoachLike ? '/coach' : '/dashboard'
 
   return (
     <Layout>

@@ -679,11 +679,11 @@ export default function CoachDashboard() {
         </p>
       </div>
 
-      {/* Main tab bar */}
+      {/* Main tab bar — staff coaches don't see Overview (revenue) */}
       <div className="flex bg-gray-800 rounded-xl p-1 mb-5 gap-1">
         {[
           { key: 'schedule', label: 'Schedule', icon: CalendarDays },
-          { key: 'overview', label: 'Overview', icon: TrendingUp },
+          ...(currentUser?.role === 'coach' ? [{ key: 'overview', label: 'Overview', icon: TrendingUp }] : []),
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}

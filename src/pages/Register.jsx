@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Dumbbell, Users, UserCheck, ShieldCheck, Loader2 } from 'lucide-react'
+import { Dumbbell, Users, UserCheck, ShieldCheck, Loader2, Clipboard } from 'lucide-react'
 
 export default function Register() {
   const { register, authLoading } = useApp()
@@ -39,6 +39,7 @@ export default function Register() {
 
   const accountTypes = [
     { role: 'coach',     icon: ShieldCheck, label: 'Coach / Owner',  sub: 'Create & manage your gym' },
+    { role: 'staff',     icon: Clipboard,   label: 'Staff Coach',     sub: 'Edit workouts & view members' },
     { role: 'member',    icon: UserCheck,   label: 'Gym Member',      sub: 'WOD + assigned programs' },
     { role: 'nonmember', icon: Users,       label: 'Non-Member',      sub: 'Assigned programs only' },
   ]

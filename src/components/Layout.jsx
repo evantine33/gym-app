@@ -94,7 +94,8 @@ export default function Layout({ children }) {
     { to: '/profile', icon: UserCircle, label: 'Profile' },
   ]
 
-  const navItems = currentUser.role === 'coach' ? coachNav : memberNav
+  const isCoachLike = currentUser.role === 'coach' || currentUser.role === 'staff'
+  const navItems = isCoachLike ? coachNav : memberNav
 
   // ── Mobile: 3 primary tabs + "More" ──────────────────────────────────────
   const memberPrimary = [
@@ -127,11 +128,11 @@ export default function Layout({ children }) {
     { to: '/profile', icon: UserCircle, label: 'Profile' },
   ]
 
-  const mobilePrimary = currentUser.role === 'coach' ? coachPrimary : memberPrimary
-  const mobileMore = currentUser.role === 'coach' ? coachMore : memberMore
+  const mobilePrimary = isCoachLike ? coachPrimary : memberPrimary
+  const mobileMore = isCoachLike ? coachMore : memberMore
 
   // Badge on "More" button — unread notifications (members)
-  const moreBadge = currentUser.role !== 'coach' ? unreadNotifs : 0
+  const moreBadge = !isCoachLike ? unreadNotifs : 0
 
   // Is the current route inside the "more" list?
   const moreRoutes = mobileMore.map(i => i.to)
@@ -188,7 +189,7 @@ export default function Layout({ children }) {
             <div className="min-w-0">
               <p className="text-sm font-medium truncate">{currentUser.name}</p>
               <p className="text-xs text-gray-500">
-                {currentUser.role === 'coach' ? 'Coach' : currentUser.role === 'nonmember' ? 'Non-Member' : 'Gym Member'}
+                {currentUser.role === 'coach' ? 'Coach' : currentUser.role === 'staff' ? 'Staff Coach' : currentUser.role === 'nonmember' ? 'Non-Member' : 'Gym Member'}
               </p>
             </div>
           </div>

@@ -324,7 +324,7 @@ function reducer(state, action) {
       return { ...state, currentUserId: null }
 
     case 'REGISTER': {
-      const validRoles = ['coach', 'member', 'nonmember']
+      const validRoles = ['coach', 'staff', 'member', 'nonmember']
       const role = validRoles.includes(action.user.role) ? action.user.role : 'member'
       const newUser = {
         ...action.user,
