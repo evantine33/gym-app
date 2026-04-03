@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   X, ChevronRight, ChevronLeft, CheckCircle2, Trophy,
-  Plus, Minus, Flame, Play, Star, Timer,
+  Plus, Minus, Flame, Play, Star, Timer, History,
 } from 'lucide-react'
 import { groupExercises, GROUP_STYLES } from './ExerciseBuilder'
 import { getVideo } from '../utils/videoStore'
@@ -152,8 +152,20 @@ function seedLog(ex, existingLog) {
   }
 }
 
+// ─── Format a date string as "Apr 1" or "3 days ago" ─────────────────────────
+function fmtDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const now = new Date()
+  const diffDays = Math.round((now - d) / 86400000)
+  if (diffDays === 0) return 'today'
+  if (diffDays === 1) return 'yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
 // ─── Logging inputs for one exercise ─────────────────────────────────────────
-function ExerciseLogger({ exercise, log, onUpdateSet, onAddSet, onRemoveSet, onUpdateNotes }) {
+function ExerciseLogger({ exercise, log, prevLog, onUpdateSet, onAddSet, onRemoveSet, onUpdateNotes }) {
   const sets = log?.sets || []
 
   return (
@@ -173,6 +185,29 @@ function ExerciseLogger({ exercise, log, onUpdateSet, onAddSet, onRemoveSet, onU
               <span className="text-gray-300"> {s.reps || '—'}{s.weight ? ` @ ${s.weight}` : ''}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Last session history */}
+      {prevLog?.sets?.length > 0 && (
+        <div className="mb-4 bg-blue-950/30 border border-blue-900/40 rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-1.5 mb-2">
+            <History className="w-3 h-3 text-blue-400" />
+            <span className="text-[11px] font-semibold text-blue-400 uppercase tracking-wide">
+              Last session · {fmtDate(prevLog.date)}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {prevLog.sets.map((s, i) => (
+              <span key={i} className="inline-flex items-center gap-1 text-xs bg-blue-900/30 border border-blue-800/40 rounded-md px-2 py-0.5 text-blue-200">
+                <span className="text-blue-400 font-semibold">S{i + 1}</span>
+                <span>{s.reps}{s.weight ? ` × ${s.weight}` : ''}</span>
+              </span>
+            ))}
+          </div>
+          {prevLog.notes ? (
+            <p className="text-[11px] text-blue-500/70 mt-2 italic">"{prevLog.notes}"</p>
+          ) : null}
         </div>
       )}
 
@@ -247,6 +282,19 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
 
   // Snapshot pre-session logs for PR comparison (before any saves happen)
   const [initialLogs] = useState(() => myLogs)
+
+  // Build a map of the most recent log for each exercise from PREVIOUS workouts
+  const prevLogMap = useMemo(() => {
+    const map = {}
+    ;[...myLogs]
+      .filter(l => l.workoutId !== workout.id)
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .forEach(l => {
+        if (!map[l.exerciseId]) map[l.exerciseId] = l
+        if (!map[l.exerciseName]) map[l.exerciseName] = l
+      })
+    return map
+  }, [myLogs, workout.id])
 
   const blocks = groupExercises(workout.exercises)
   const hasWarmup = workout.warmup?.length > 0
@@ -464,6 +512,7 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
           <ExerciseLogger
             exercise={currentBlock.exercise}
             log={logData[currentBlock.exercise.id]}
+            prevLog={prevLogMap[currentBlock.exercise.id] || prevLogMap[currentBlock.exercise.name]}
             onUpdateSet={(i, f, v) => updateSet(currentBlock.exercise.id, i, f, v)}
             onAddSet={() => addSet(currentBlock.exercise.id)}
             onRemoveSet={(i) => removeSet(currentBlock.exercise.id, i)}
@@ -506,6 +555,7 @@ export default function WorkoutSession({ workout, myLogs, onClose }) {
                     <ExerciseLogger
                       exercise={ex}
                       log={logData[ex.id]}
+                      prevLog={prevLogMap[ex.id] || prevLogMap[ex.name]}
                       onUpdateSet={(si, f, v) => updateSet(ex.id, si, f, v)}
                       onAddSet={() => addSet(ex.id)}
                       onRemoveSet={(si) => removeSet(ex.id, si)}
