@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useApp } from '../context/AppContext'
-import { Search, UserCheck, Users, UserX, Mail, Phone, CalendarDays, Dumbbell, TrendingUp } from 'lucide-react'
+import { Search, UserCheck, Users, UserX, Mail, Phone, CalendarDays, Dumbbell, TrendingUp, Layers, ChevronDown } from 'lucide-react'
 
 const ROLE_META = {
   member:    { label: 'Gym Member',   color: 'text-orange-400 bg-orange-500/10 border-orange-500/30' },
@@ -177,10 +177,177 @@ function MemberCard({ member, logs, workouts }) {
   )
 }
 
+// ─── By-Exercise pairing view ─────────────────────────────────────────────────
+function PairingView({ members, logs, workouts }) {
+  const [selectedExercise, setSelectedExercise] = useState('')
+
+  // Build unique exercise list from all workout logs
+  const exerciseOptions = useMemo(() => {
+    const map = {}
+    logs.forEach(l => {
+      if (l.exerciseName && !map[l.exerciseName]) {
+        map[l.exerciseName] = l.exerciseId
+      }
+    })
+    return Object.keys(map).sort()
+  }, [logs])
+
+  // For selected exercise, find each member's most recent log
+  const memberData = useMemo(() => {
+    if (!selectedExercise) return []
+    return members
+      .map(m => {
+        const exLogs = logs
+          .filter(l => l.userId === m.id && l.exerciseName === selectedExercise)
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+        const lastLog = exLogs[0]
+        if (!lastLog) return null
+        const topWeight = Math.max(0, ...(lastLog.sets || []).map(s => parseFloat(s.weight) || 0))
+        const totalSets = lastLog.sets?.length || 0
+        const logDate = new Date(lastLog.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        return { member: m, topWeight, totalSets, sets: lastLog.sets || [], logDate }
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.topWeight - a.topWeight)
+  }, [selectedExercise, members, logs])
+
+  // Group into weight tiers (within 10% of each other)
+  const tiers = useMemo(() => {
+    if (!memberData.length) return []
+    const groups = []
+    let current = [memberData[0]]
+    for (let i = 1; i < memberData.length; i++) {
+      const top = current[0].topWeight
+      const cur = memberData[i].topWeight
+      // Same tier if within 15 lbs or 15% of the top weight
+      if (top === 0 || Math.abs(top - cur) <= Math.max(15, top * 0.15)) {
+        current.push(memberData[i])
+      } else {
+        groups.push(current)
+        current = [memberData[i]]
+      }
+    }
+    groups.push(current)
+    return groups
+  }, [memberData])
+
+  const tierColors = [
+    'border-orange-500/40 bg-orange-500/5',
+    'border-blue-500/40 bg-blue-500/5',
+    'border-green-500/40 bg-green-500/5',
+    'border-purple-500/40 bg-purple-500/5',
+    'border-yellow-500/40 bg-yellow-500/5',
+  ]
+  const tierTextColors = ['text-orange-400', 'text-blue-400', 'text-green-400', 'text-purple-400', 'text-yellow-400']
+
+  return (
+    <div>
+      {/* Exercise selector */}
+      <div className="relative mb-6">
+        <Dumbbell className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+        <select
+          value={selectedExercise}
+          onChange={e => setSelectedExercise(e.target.value)}
+          className="input pl-9 pr-8 appearance-none cursor-pointer w-full"
+        >
+          <option value="">Select an exercise…</option>
+          {exerciseOptions.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+        <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+      </div>
+
+      {!selectedExercise && (
+        <div className="card text-center py-12">
+          <Layers className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-400 font-medium">Pick an exercise above</p>
+          <p className="text-gray-600 text-sm mt-1">Members will be ranked and grouped by weight for easy pairing</p>
+        </div>
+      )}
+
+      {selectedExercise && memberData.length === 0 && (
+        <div className="card text-center py-12">
+          <Dumbbell className="w-10 h-10 text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-400 font-medium">No logged data yet</p>
+          <p className="text-gray-600 text-sm mt-1">No members have logged {selectedExercise} yet</p>
+        </div>
+      )}
+
+      {selectedExercise && tiers.length > 0 && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold">
+            {memberData.length} member{memberData.length !== 1 ? 's' : ''} have logged this · grouped by similar weight
+          </p>
+          {tiers.map((tier, ti) => (
+            <div key={ti} className={`rounded-2xl border p-4 ${tierColors[ti % tierColors.length]}`}>
+              {/* Tier label */}
+              <div className="flex items-center justify-between mb-3">
+                <span className={`text-xs font-bold uppercase tracking-wide ${tierTextColors[ti % tierTextColors.length]}`}>
+                  Tier {ti + 1} · ~{tier[0].topWeight > 0 ? `${tier[0].topWeight} lbs` : 'bodyweight'}
+                </span>
+                <span className="text-[10px] text-gray-600">{tier.length} athlete{tier.length !== 1 ? 's' : ''}</span>
+              </div>
+
+              {/* Members in this tier */}
+              <div className="space-y-3">
+                {tier.map(({ member, topWeight, sets, logDate }) => (
+                  <div key={member.id} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-xs font-black text-orange-400 flex-shrink-0 mt-0.5">
+                      {member.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-white truncate">{member.name}</span>
+                        <span className="text-xs text-gray-500 flex-shrink-0">{logDate}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {sets.map((s, i) => (
+                          <span key={i} className="text-[11px] bg-gray-800/80 border border-gray-700 rounded px-1.5 py-0.5 text-gray-300">
+                            <span className="text-gray-500">S{i + 1} </span>
+                            {s.reps || '—'}{s.weight ? <span className="text-gray-400"> × {s.weight}</span> : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Members with no data */}
+          {(() => {
+            const loggedIds = new Set(memberData.map(d => d.member.id))
+            const missing = members.filter(m => !loggedIds.has(m.id))
+            if (!missing.length) return null
+            return (
+              <div className="rounded-2xl border border-gray-800 bg-gray-900/30 p-4">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-600 mb-2">No data yet</p>
+                <div className="flex flex-wrap gap-2">
+                  {missing.map(m => (
+                    <div key={m.id} className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-[10px] font-black text-gray-500">
+                        {m.initials}
+                      </div>
+                      <span className="text-xs text-gray-500">{m.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Members() {
   const { state, currentUser } = useApp()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all') // 'all' | 'member' | 'nonmember'
+  const [tab, setTab] = useState('roster') // 'roster' | 'pairing'
 
   const gymId = currentUser?.gymId
   const gymMembers = state.users.filter(u =>
@@ -205,11 +372,33 @@ export default function Members() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold">Members</h1>
         <p className="text-gray-400 text-sm mt-0.5">{gymMembers.length} total in your gym</p>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 mb-5">
+        <button
+          onClick={() => setTab('roster')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'roster' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+        >
+          <Users className="w-4 h-4" /> Roster
+        </button>
+        <button
+          onClick={() => setTab('pairing')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all ${tab === 'pairing' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+        >
+          <Layers className="w-4 h-4" /> Pair by Exercise
+        </button>
+      </div>
+
+      {/* Pairing tab */}
+      {tab === 'pairing' && (
+        <PairingView members={gymMembers} logs={gymLogs} workouts={gymWorkouts} />
+      )}
+
+      {tab !== 'pairing' && <>
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="card text-center py-3">
@@ -280,6 +469,7 @@ export default function Members() {
           ))}
         </div>
       )}
+      </>}
     </div>
   )
 }
