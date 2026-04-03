@@ -40,6 +40,11 @@ function AppRoutes() {
 
   // Not logged in → public pages only
   if (!currentUser) {
+    // Root "/" sends visitors to the marketing landing page
+    if (window.location.pathname === '/') {
+      window.location.replace('/landing.html')
+      return null
+    }
     return (
       <Routes>
         <Route path="/login" element={<Login />} />
