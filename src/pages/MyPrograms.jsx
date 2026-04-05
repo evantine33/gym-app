@@ -392,9 +392,10 @@ export default function MyPrograms() {
   const gymId = currentUser?.gymId
   const gymWorkouts = state.workouts.filter(w => w.gymId === gymId)
 
-  // Find workouts assigned specifically to this member that came from a program
+  // Find workouts from a program assigned to this member OR to all gym members (assignedTo === null)
   const assignedWorkouts = gymWorkouts.filter(w =>
-    w.assignedTo === currentUser?.id && w.fromProgram
+    w.fromProgram &&
+    (w.assignedTo === currentUser?.id || w.assignedTo === null)
   )
 
   // Group by program

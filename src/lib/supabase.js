@@ -67,6 +67,9 @@ export async function insertWorkout(workout) {
     created_by: workout.createdBy,
     exercises: workout.exercises,
     warmup: workout.warmup || [],
+    assigned_to: workout.assignedTo || null,
+    from_program: workout.fromProgram || null,
+    week_number: workout.weekNumber || null,
   })
 }
 

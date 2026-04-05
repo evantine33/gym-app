@@ -511,25 +511,32 @@ function reducer(state, action) {
       const prog = state.programs.find(p => p.id === action.programId)
       if (!prog) return state
       const currentUser = state.users.find(u => u.id === state.currentUserId)
-      const DAY_OFFSETS = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 }
-      const start = new Date(action.startDate + 'T12:00:00')
-      const newWorkouts = []
-      for (let week = 1; week <= prog.totalWeeks; week++) {
-        for (const pw of prog.weeks[String(week)] || []) {
-          const d = new Date(start)
-          d.setDate(start.getDate() + (week - 1) * 7 + (DAY_OFFSETS[pw.day] ?? 0))
-          newWorkouts.push({
-            id: 'workout-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-            title: pw.title,
-            date: d.toISOString().split('T')[0],
-            gymId: currentUser?.gymId || null,
-            createdBy: state.currentUserId,
-            createdAt: new Date().toISOString(),
-            exercises: pw.exercises.map(ex => ({ ...ex, id: 'ex-' + Math.random().toString(36).slice(2) })),
-            fromProgram: prog.id,
-            weekNumber: week,
-            assignedTo: action.assignTo || null,
-          })
+      // If caller pre-built the workouts (so they can also save them to Supabase
+      // with matching IDs), use those directly instead of generating new ones.
+      let newWorkouts
+      if (action.workouts && action.workouts.length > 0) {
+        newWorkouts = action.workouts
+      } else {
+        const DAY_OFFSETS = { Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6 }
+        const start = new Date(action.startDate + 'T12:00:00')
+        newWorkouts = []
+        for (let week = 1; week <= prog.totalWeeks; week++) {
+          for (const pw of prog.weeks[String(week)] || []) {
+            const d = new Date(start)
+            d.setDate(start.getDate() + (week - 1) * 7 + (DAY_OFFSETS[pw.day] ?? 0))
+            newWorkouts.push({
+              id: 'workout-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+              title: pw.title,
+              date: d.toISOString().split('T')[0],
+              gymId: currentUser?.gymId || null,
+              createdBy: state.currentUserId,
+              createdAt: new Date().toISOString(),
+              exercises: pw.exercises.map(ex => ({ ...ex, id: 'ex-' + Math.random().toString(36).slice(2) })),
+              fromProgram: prog.id,
+              weekNumber: week,
+              assignedTo: action.assignTo || null,
+            })
+          }
         }
       }
       const deployNotif = {
@@ -833,6 +840,9 @@ function reducer(state, action) {
       const remoteWorkouts = (action.workouts || []).map(w => ({
         id: w.id, title: w.title, date: w.date, gymId: w.gym_id,
         createdBy: w.created_by, exercises: w.exercises || [], warmup: w.warmup || [], createdAt: w.created_at,
+        assignedTo: w.assigned_to || null,
+        fromProgram: w.from_program || null,
+        weekNumber: w.week_number || null,
       }))
       const workouts = gymId
         ? [...state.workouts.filter(w => w.gymId !== gymId), ...remoteWorkouts]
