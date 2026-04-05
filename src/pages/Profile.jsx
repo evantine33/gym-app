@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { useNavigate } from 'react-router-dom'
-import { User, Mail, Phone, Shield, LogOut, Check, Pencil } from 'lucide-react'
+import { User, Mail, Phone, Shield, LogOut, Check, Pencil, Bell, BellOff, BellRing } from 'lucide-react'
+import { usePushNotifications } from '../hooks/usePushNotifications'
 
 export default function Profile() {
   const { currentUser, state, dispatch } = useApp()
@@ -28,6 +29,7 @@ export default function Profile() {
     navigate('/login')
   }
 
+  const { status: pushStatus, subscribe, unsubscribe } = usePushNotifications()
   const myLogs = state.workoutLogs.filter(l => l.userId === currentUser.id)
   const joinDate = new Date(currentUser.joinDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 
@@ -115,6 +117,57 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* Daily motivation notifications */}
+      {pushStatus !== 'unsupported' && (
+        <div className="card mb-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-9 h-9 rounded-xl bg-orange-500/15 border border-orange-500/30 flex items-center justify-center flex-shrink-0">
+              <BellRing className="w-4.5 h-4.5 text-orange-400" />
+            </div>
+            <div>
+              <p className="font-semibold text-white text-sm">Daily Motivation</p>
+              <p className="text-xs text-gray-500">Get an inspiring quote every morning at 8am</p>
+            </div>
+          </div>
+
+          {pushStatus === 'loading' && (
+            <div className="h-10 bg-gray-800 rounded-xl animate-pulse" />
+          )}
+
+          {pushStatus === 'granted' && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 bg-green-900/20 border border-green-800/30 rounded-xl px-3 py-2.5">
+                <Bell className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <p className="text-xs text-green-300 flex-1">You're subscribed — check in every morning for your daily quote 💪</p>
+              </div>
+              <button
+                onClick={unsubscribe}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-700 hover:border-gray-600 text-gray-400 hover:text-gray-300 rounded-xl text-sm transition-colors"
+              >
+                <BellOff className="w-4 h-4" /> Turn off notifications
+              </button>
+            </div>
+          )}
+
+          {pushStatus === 'default' && (
+            <button
+              onClick={subscribe}
+              className="w-full flex items-center justify-center gap-2 py-3 btn-primary text-sm font-bold"
+            >
+              <Bell className="w-4 h-4" /> Enable Daily Motivation
+            </button>
+          )}
+
+          {pushStatus === 'denied' && (
+            <div className="bg-gray-800/60 border border-gray-700 rounded-xl px-3 py-2.5">
+              <p className="text-xs text-gray-400">
+                Notifications are blocked in your browser settings. To enable, click the 🔒 icon in your address bar and allow notifications for this site.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sign out */}
       <button
