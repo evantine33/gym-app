@@ -113,7 +113,6 @@ export async function upsertHabitDef(def) {
   return supabase.from('habit_defs').upsert({
     id: def.id,
     user_id: def.userId,
-    gym_id: def.gymId || null,
     name: def.name,
     description: def.description || '',
     emoji: def.emoji || '✅',
@@ -133,7 +132,6 @@ export async function upsertHabitLog(log) {
     id: log.id,
     habit_id: log.habitId,
     user_id: log.userId,
-    gym_id: log.gymId || null,
     date: log.date,
     completed: log.completed,
   }, { onConflict: 'habit_id,user_id,date' })
