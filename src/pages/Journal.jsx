@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import {
   Plus, Trash2, X, ChevronLeft, ChevronRight, Flame,
-  BookOpen, Check, Pencil, Calendar,
+  BookOpen, Check, Pencil, Calendar, Star,
 } from 'lucide-react'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -21,9 +21,16 @@ const getLast7Days = () => {
   })
 }
 
+// Fixed: if today isn't checked yet, start from yesterday so streak
+// doesn't collapse to 0 before the member has a chance to check in.
 const getStreak = (habitId, habitLogs) => {
   let streak = 0
   const d = new Date()
+  const todayStr = d.toISOString().split('T')[0]
+  const todayDone = habitLogs.some(
+    l => l.habitId === habitId && l.date === todayStr && l.completed
+  )
+  if (!todayDone) d.setDate(d.getDate() - 1) // start counting from yesterday
   while (true) {
     const dateStr = d.toISOString().split('T')[0]
     const log = habitLogs.find(l => l.habitId === habitId && l.date === dateStr && l.completed)
@@ -33,6 +40,23 @@ const getStreak = (habitId, habitLogs) => {
   }
   return streak
 }
+
+// ─── Streak milestones ────────────────────────────────────────────────────────
+const MILESTONES = [
+  { days: 7,   emoji: '🔥', label: 'Week Warrior',  color: 'text-orange-400 bg-orange-500/15 border-orange-500/40' },
+  { days: 10,  emoji: '⚡', label: '10-Day Streak', color: 'text-yellow-400 bg-yellow-500/15 border-yellow-500/40' },
+  { days: 20,  emoji: '💪', label: '20-Day Streak', color: 'text-blue-400 bg-blue-500/15 border-blue-500/40' },
+  { days: 50,  emoji: '🏆', label: '50-Day Streak', color: 'text-purple-400 bg-purple-500/15 border-purple-500/40' },
+  { days: 100, emoji: '🌟', label: 'Legend',        color: 'text-yellow-300 bg-yellow-400/15 border-yellow-400/40' },
+]
+
+// Highest milestone the current streak has reached
+const getEarnedMilestone = (streak) =>
+  [...MILESTONES].reverse().find(m => streak >= m.days) || null
+
+// Next milestone the member is working toward
+const getNextMilestone = (streak) =>
+  MILESTONES.find(m => streak < m.days) || null
 
 // ─── Mood config ─────────────────────────────────────────────────────────────
 const MOODS = [
@@ -209,10 +233,54 @@ function JournalModal({ existing, onClose, onSave }) {
   )
 }
 
+// ─── Milestone celebration overlay ───────────────────────────────────────────
+function MilestoneCelebration({ habit, milestone, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-gray-900 border border-gray-700 rounded-3xl p-8 max-w-xs w-full text-center shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Sparkle ring */}
+        <div className="w-24 h-24 rounded-full bg-orange-500/10 border-2 border-orange-500/40 flex items-center justify-center mx-auto mb-5">
+          <span className="text-5xl">{milestone.emoji}</span>
+        </div>
+
+        <p className="text-xs text-orange-400 font-bold uppercase tracking-widest mb-2">Badge Unlocked!</p>
+        <h2 className="text-2xl font-black text-white mb-1">{milestone.label}</h2>
+        <p className="text-gray-400 text-sm mb-1">
+          <span className="text-white font-semibold">{habit.emoji} {habit.name}</span>
+        </p>
+        <p className="text-gray-500 text-sm mb-6">
+          {milestone.days} days in a row — keep it going!
+        </p>
+
+        {/* Stars */}
+        <div className="flex justify-center gap-1 mb-6">
+          {[...Array(5)].map((_, i) => (
+            <Star key={i} className="w-5 h-5 text-yellow-400 fill-yellow-400" />
+          ))}
+        </div>
+
+        <button
+          onClick={onClose}
+          className="btn-primary w-full py-3 font-bold"
+        >
+          Let's Go! 💪
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Habits Tab ───────────────────────────────────────────────────────────────
 function HabitsTab({ userId }) {
   const { state, dispatch } = useApp()
   const [showAdd, setShowAdd] = useState(false)
+  const [celebrating, setCelebrating] = useState(null) // { habit, milestone }
 
   const myHabits = (state.habitDefs || []).filter(h => h.userId === userId)
   const myLogs = (state.habitLogs || []).filter(l => l.userId === userId)
@@ -222,8 +290,20 @@ function HabitsTab({ userId }) {
   const isCompleted = (habitId, date) =>
     myLogs.some(l => l.habitId === habitId && l.date === date && l.completed)
 
-  const toggle = (habitId) => {
-    dispatch({ type: 'TOGGLE_HABIT_LOG', habitId, date: todayStr })
+  const toggle = (habit) => {
+    const wasDone = isCompleted(habit.id, todayStr)
+
+    // If we're checking it off, see if we're hitting a milestone
+    if (!wasDone) {
+      const currentStreak = getStreak(habit.id, myLogs) // streak before today
+      const newStreak = currentStreak + 1
+      const milestone = MILESTONES.find(m => m.days === newStreak)
+      if (milestone) {
+        setTimeout(() => setCelebrating({ habit, milestone }), 300)
+      }
+    }
+
+    dispatch({ type: 'TOGGLE_HABIT_LOG', habitId: habit.id, date: todayStr })
   }
 
   const deleteHabit = (defId) => {
@@ -271,7 +351,7 @@ function HabitsTab({ userId }) {
         <div className="text-center py-16">
           <div className="text-5xl mb-4">🎯</div>
           <p className="text-white font-bold text-lg mb-1">No habits yet</p>
-          <p className="text-gray-500 text-sm mb-6">Add habits you want to build — check them off daily to build streaks</p>
+          <p className="text-gray-500 text-sm mb-6">Add habits you want to build — check them off daily to build streaks and unlock badges</p>
           <button onClick={() => setShowAdd(true)} className="btn-primary px-6 py-2.5">
             <Plus className="w-4 h-4 inline mr-1" /> Add Your First Habit
           </button>
@@ -281,6 +361,9 @@ function HabitsTab({ userId }) {
           {myHabits.map(habit => {
             const streak = getStreak(habit.id, myLogs)
             const done = isCompleted(habit.id, todayStr)
+            const earnedMilestone = getEarnedMilestone(streak)
+            const nextMilestone = getNextMilestone(streak)
+            const daysToNext = nextMilestone ? nextMilestone.days - streak : 0
 
             return (
               <div key={habit.id} className={`rounded-2xl border transition-all ${done ? 'bg-orange-500/5 border-orange-500/20' : 'bg-gray-900 border-gray-800'}`}>
@@ -288,7 +371,7 @@ function HabitsTab({ userId }) {
                 <div className="flex items-center gap-3 px-4 py-3.5">
                   {/* Check button */}
                   <button
-                    onClick={() => toggle(habit.id)}
+                    onClick={() => toggle(habit)}
                     className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-orange-500 border-orange-500' : 'border-gray-600 hover:border-orange-500/50'}`}
                   >
                     {done && <Check className="w-5 h-5 text-white font-bold" />}
@@ -309,31 +392,39 @@ function HabitsTab({ userId }) {
                     </div>
                   </div>
 
-                  {/* Streak */}
-                  {streak > 0 && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Flame className="w-3.5 h-3.5 text-orange-400" />
-                      <span className="text-xs font-bold text-orange-400">{streak}</span>
-                    </div>
-                  )}
+                  {/* Streak + badge */}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    {streak > 0 && (
+                      <div className="flex items-center gap-1">
+                        <Flame className="w-3.5 h-3.5 text-orange-400" />
+                        <span className="text-sm font-black text-orange-400">{streak}</span>
+                        <span className="text-[10px] text-gray-600">days</span>
+                      </div>
+                    )}
+                    {earnedMilestone && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${earnedMilestone.color}`}>
+                        {earnedMilestone.emoji} {earnedMilestone.label}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Delete */}
                   <button
                     onClick={() => deleteHabit(habit.id)}
-                    className="text-gray-700 hover:text-red-400 transition-colors flex-shrink-0"
+                    className="text-gray-700 hover:text-red-400 transition-colors flex-shrink-0 ml-1"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* 7-day history dots */}
-                <div className="flex items-center gap-1 px-4 pb-3">
+                <div className="flex items-center gap-1 px-4 pb-2.5">
                   {last7.map(date => {
-                    const done = isCompleted(habit.id, date)
+                    const checked = isCompleted(habit.id, date)
                     const isToday = date === todayStr
                     return (
                       <div key={date} className="flex-1 flex flex-col items-center gap-1">
-                        <div className={`w-full h-1.5 rounded-full ${done ? 'bg-orange-500' : 'bg-gray-800'}`} />
+                        <div className={`w-full h-1.5 rounded-full ${checked ? 'bg-orange-500' : 'bg-gray-800'}`} />
                         <span className={`text-[9px] font-medium ${isToday ? 'text-orange-400' : 'text-gray-700'}`}>
                           {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' })}
                         </span>
@@ -341,6 +432,31 @@ function HabitsTab({ userId }) {
                     )
                   })}
                 </div>
+
+                {/* Progress to next milestone */}
+                {nextMilestone && streak > 0 && (
+                  <div className="px-4 pb-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-gray-600">
+                        {daysToNext} day{daysToNext !== 1 ? 's' : ''} to {nextMilestone.emoji} {nextMilestone.label}
+                      </span>
+                      <span className="text-[10px] text-gray-700">{streak}/{nextMilestone.days}</span>
+                    </div>
+                    <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-600 to-orange-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.round((streak / nextMilestone.days) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* All milestones unlocked message */}
+                {!nextMilestone && streak >= 100 && (
+                  <div className="px-4 pb-3">
+                    <p className="text-[10px] text-yellow-400/70 text-center">🌟 All badges unlocked — you're a legend!</p>
+                  </div>
+                )}
               </div>
             )
           })}
@@ -357,7 +473,30 @@ function HabitsTab({ userId }) {
         </button>
       )}
 
+      {/* Milestone badges legend */}
+      {myHabits.length > 0 && (
+        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl px-4 py-3">
+          <p className="text-[10px] text-gray-600 uppercase tracking-wide font-semibold mb-2.5">Streak Badges</p>
+          <div className="flex flex-wrap gap-2">
+            {MILESTONES.map(m => (
+              <span key={m.days} className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border ${m.color} opacity-70`}>
+                {m.emoji} {m.days}d · {m.label}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {showAdd && <AddHabitModal onClose={() => setShowAdd(false)} onAdd={addHabit} />}
+
+      {/* Milestone celebration */}
+      {celebrating && (
+        <MilestoneCelebration
+          habit={celebrating.habit}
+          milestone={celebrating.milestone}
+          onClose={() => setCelebrating(null)}
+        />
+      )}
     </div>
   )
 }
