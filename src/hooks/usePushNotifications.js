@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 
-const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID
+const APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID || '61db1733-7173-4ddc-8ed4-b3a246671d0a'
 
 // ─── Load OneSignal SDK once ───────────────────────────────────────────────────
 let sdkLoaded = false

@@ -146,6 +146,12 @@ const res = await fetch('https://onesignal.com/api/v1/notifications', {
 
 const json = await res.json()
 
+// "No subscribers yet" is not a real error — just means no one has opted in yet
+if (json.errors?.includes('All included players are not subscribed')) {
+  console.log('⚠️  No subscribers yet — once members enable notifications in the app, they will receive this quote.')
+  process.exit(0)
+}
+
 if (!res.ok || json.errors) {
   console.error('❌ Failed to send:', JSON.stringify(json, null, 2))
   process.exit(1)
