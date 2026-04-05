@@ -108,6 +108,46 @@ export async function getGymLogs(gymId) {
   return supabase.from('workout_logs').select('*').eq('gym_id', gymId).order('logged_at', { ascending: false })
 }
 
+// ─── Habits ───────────────────────────────────────────────────────────────────
+export async function upsertHabitDef(def) {
+  return supabase.from('habit_defs').upsert({
+    id: def.id,
+    user_id: def.userId,
+    gym_id: def.gymId || null,
+    name: def.name,
+    description: def.description || '',
+    emoji: def.emoji || '✅',
+  })
+}
+
+export async function deleteHabitDef(id) {
+  return supabase.from('habit_defs').delete().eq('id', id)
+}
+
+export async function getUserHabitDefs(userId) {
+  return supabase.from('habit_defs').select('*').eq('user_id', userId)
+}
+
+export async function upsertHabitLog(log) {
+  return supabase.from('habit_logs').upsert({
+    id: log.id,
+    habit_id: log.habitId,
+    user_id: log.userId,
+    gym_id: log.gymId || null,
+    date: log.date,
+    completed: log.completed,
+  }, { onConflict: 'habit_id,user_id,date' })
+}
+
+export async function deleteHabitLog(habitId, userId) {
+  return supabase.from('habit_logs').delete()
+    .eq('habit_id', habitId).eq('user_id', userId)
+}
+
+export async function getUserHabitLogs(userId) {
+  return supabase.from('habit_logs').select('*').eq('user_id', userId)
+}
+
 // ─── Realtime Subscriptions ───────────────────────────────────────────────────
 export function subscribeToGymWorkouts(gymId, callback) {
   return supabase

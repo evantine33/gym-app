@@ -7,6 +7,7 @@ import {
   insertGym, getGymByCode, getGymById,
   insertWorkout, updateWorkout as sbUpdateWorkout, deleteWorkout as sbDeleteWorkout, getGymWorkouts,
   upsertWorkoutLog, getGymLogs,
+  upsertHabitDef, deleteHabitDef, getUserHabitDefs, upsertHabitLog, deleteHabitLog, getUserHabitLogs,
   subscribeToGymWorkouts, subscribeToGymLogs,
 } from '../lib/supabase'
 
@@ -858,7 +859,27 @@ function reducer(state, action) {
         ? [...state.workoutLogs.filter(l => l.gymId !== gymId), ...remoteLogs]
         : state.workoutLogs
 
-      return { ...state, users, gyms, workouts, workoutLogs, currentUserId: p.id }
+      // Merge this user's habits (keep local habits for other users untouched)
+      const remoteHabitDefs = (action.habitDefs || []).map(d => ({
+        id: d.id, userId: d.user_id, gymId: d.gym_id || null,
+        name: d.name, description: d.description || '', emoji: d.emoji || '✅',
+        createdAt: d.created_at,
+      }))
+      const habitDefs = [
+        ...(state.habitDefs || []).filter(d => d.userId !== p.id),
+        ...remoteHabitDefs,
+      ]
+
+      const remoteHabitLogs = (action.habitLogs || []).map(l => ({
+        id: l.id, habitId: l.habit_id, userId: l.user_id, gymId: l.gym_id || null,
+        date: l.date, completed: l.completed, createdAt: l.created_at,
+      }))
+      const habitLogs = [
+        ...(state.habitLogs || []).filter(l => l.userId !== p.id),
+        ...remoteHabitLogs,
+      ]
+
+      return { ...state, users, gyms, workouts, workoutLogs, habitDefs, habitLogs, currentUserId: p.id }
     }
 
     case 'HYDRATE_USER': {
@@ -906,7 +927,16 @@ async function hydrateFromSupabase(userId, dispatch) {
     logs = logsRes.data || []
     members = membersRes.data || []
   }
-  dispatch({ type: 'HYDRATE', profile, gym, workouts, logs, members })
+
+  // Fetch this user's habits and habit logs (personal, not gym-scoped)
+  const [habitDefsRes, habitLogsRes] = await Promise.all([
+    getUserHabitDefs(userId),
+    getUserHabitLogs(userId),
+  ])
+  const habitDefs = habitDefsRes.data || []
+  const habitLogs = habitLogsRes.data || []
+
+  dispatch({ type: 'HYDRATE', profile, gym, workouts, logs, members, habitDefs, habitLogs })
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -1002,6 +1032,27 @@ export function AppProvider({ children }) {
             name: a.data.name, phone: a.data.phone,
           })
           break
+        case 'ADD_HABIT_DEF': {
+          // The reducer already created the def — grab it from state after dispatch
+          const newDef = stateRef.current.habitDefs?.find(d => d.userId === s.currentUserId && d.name === a.name)
+          if (newDef) {
+            await upsertHabitDef({ ...newDef, gymId: me?.gymId || null })
+          }
+          break
+        }
+        case 'DELETE_HABIT_DEF':
+          await deleteHabitDef(a.defId)
+          break
+        case 'TOGGLE_HABIT_LOG': {
+          // Find the log after the reducer has updated it
+          const log = stateRef.current.habitLogs?.find(
+            l => l.habitId === a.habitId && l.userId === s.currentUserId && l.date === a.date
+          )
+          if (log) {
+            await upsertHabitLog({ ...log, gymId: me?.gymId || null })
+          }
+          break
+        }
       }
     } catch (err) {
       console.error('Supabase sync error:', err)
