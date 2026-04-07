@@ -730,7 +730,7 @@ function reducer(state, action) {
     // ── Habits ─────────────────────────────────────────────────────────────
     case 'ADD_HABIT_DEF': {
       const def = {
-        id: 'hdef-' + Date.now(),
+        id: action.id || ('hdef-' + Date.now()),
         userId: state.currentUserId,
         name: action.name,
         description: action.description || '',
@@ -996,6 +996,10 @@ export function AppProvider({ children }) {
     if (a.type === 'CREATE_GYM' && !a.gymId) {
       a = { ...a, gymId: 'gym-' + Date.now(), joinCode: generateJoinCode() }
     }
+    // Pre-generate habit def ID so reducer and Supabase use the same one
+    if (a.type === 'ADD_HABIT_DEF' && !a.id) {
+      a = { ...a, id: 'hdef-' + Date.now() }
+    }
 
     dispatch(a) // immediate local update
 
@@ -1032,24 +1036,43 @@ export function AppProvider({ children }) {
             name: a.data.name, phone: a.data.phone,
           })
           break
-        case 'ADD_HABIT_DEF': {
-          // The reducer already created the def — grab it from state after dispatch
-          const newDef = stateRef.current.habitDefs?.find(d => d.userId === s.currentUserId && d.name === a.name)
-          if (newDef) {
-            await upsertHabitDef({ ...newDef, gymId: me?.gymId || null })
-          }
+        case 'ADD_HABIT_DEF':
+          // Use pre-generated ID from action (set above before dispatch)
+          await upsertHabitDef({
+            id: a.id,
+            userId: s.currentUserId,
+            name: a.name,
+            description: a.description || '',
+            emoji: a.emoji || '✅',
+          })
           break
-        }
         case 'DELETE_HABIT_DEF':
           await deleteHabitDef(a.defId)
+          // Also delete all logs for this habit
+          await deleteHabitLog(a.defId, s.currentUserId)
           break
         case 'TOGGLE_HABIT_LOG': {
-          // Find the log after the reducer has updated it
-          const log = stateRef.current.habitLogs?.find(
+          // Use pre-dispatch state (s = stateRef.current captured before dispatch)
+          // to correctly compute the new completed value without a race condition
+          const existing = (s.habitLogs || []).find(
             l => l.habitId === a.habitId && l.userId === s.currentUserId && l.date === a.date
           )
-          if (log) {
-            await upsertHabitLog({ ...log, gymId: me?.gymId || null })
+          if (existing) {
+            await upsertHabitLog({
+              id: existing.id,
+              habitId: existing.habitId,
+              userId: existing.userId,
+              date: existing.date,
+              completed: !existing.completed,
+            })
+          } else {
+            await upsertHabitLog({
+              id: 'hlog-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+              habitId: a.habitId,
+              userId: s.currentUserId,
+              date: a.date,
+              completed: true,
+            })
           }
           break
         }

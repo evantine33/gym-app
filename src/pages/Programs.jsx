@@ -357,14 +357,21 @@ function DeployModal({ program, onClose }) {
 
     // Save each workout to Supabase so all members can see them
     if (isSupabaseEnabled) {
+      let syncFailed = false
       try {
         for (const w of builtWorkouts) {
           const { error } = await insertWorkout(w)
-          if (error) console.error('Failed to save workout to Supabase:', error.message)
+          if (error) {
+            console.error('Failed to save workout to Supabase:', error.message)
+            syncFailed = true
+          }
         }
       } catch (err) {
         console.error('Supabase deploy error:', err)
-        setDeployError('Saved locally, but cloud sync had an issue. Members may need to refresh.')
+        syncFailed = true
+      }
+      if (syncFailed) {
+        setDeployError('Cloud sync failed — members may not see this yet. Try deploying again.')
       }
     }
 
@@ -386,7 +393,7 @@ function DeployModal({ program, onClose }) {
           <p className="text-gray-500 text-xs mb-1">
             {new Date(startDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} → {endDate}
           </p>
-          {isSupabaseEnabled && (
+          {isSupabaseEnabled && !deployError && (
             <p className="text-xs text-green-500/70 mb-4">✓ Synced to cloud — members can see it now</p>
           )}
           {deployError && (
