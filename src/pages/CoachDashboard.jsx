@@ -478,18 +478,34 @@ function OverviewTab({ gymWorkouts, gymUsers, gymLogs, state, currentUser }) {
     return acc
   }, [])
 
-  // Today's WOD completion by gym members
-  const todayWorkouts = gymWorkouts.filter(w => w.date === TODAY)
+  // Today's WOD completion by gym members (WODs only, not personal programs)
+  const todayWods = gymWorkouts.filter(w => w.date === TODAY && !w.fromProgram)
   const memberCompletionToday = members.map(member => {
     let logged = 0
     let total = 0
-    todayWorkouts.forEach(workout => {
+    todayWods.forEach(workout => {
       total += workout.exercises.length
       logged += workout.exercises.filter(ex =>
         gymLogs.some(l => l.userId === member.id && l.exerciseId === ex.id)
       ).length
     })
-    return { member, logged, total, pct: total ? Math.round((logged / total) * 100) : 0 }
+
+    // Find this member's current active program (deployed workout closest to today)
+    const memberProgWorkouts = gymWorkouts.filter(w =>
+      w.fromProgram && (w.assignedTo === member.id || w.assignedTo === null)
+    )
+    const currentProgId = (() => {
+      if (!memberProgWorkouts.length) return null
+      const future = memberProgWorkouts.filter(w => w.date >= TODAY).sort((a, b) => a.date.localeCompare(b.date))
+      const past = memberProgWorkouts.filter(w => w.date < TODAY).sort((a, b) => b.date.localeCompare(a.date))
+      const closest = future[0] || past[0]
+      return closest?.fromProgram || null
+    })()
+    const progName = currentProgId
+      ? (state.programs.find(p => p.id === currentProgId)?.name || 'Custom Program')
+      : null
+
+    return { member, logged, total, pct: total ? Math.round((logged / total) * 100) : 0, progName }
   })
 
   // Activity feed — recent workout logs in the gym
@@ -597,13 +613,20 @@ function OverviewTab({ gymWorkouts, gymUsers, gymLogs, state, currentUser }) {
           <p className="text-xs text-gray-600 text-center py-4">No workout posted for today</p>
         ) : (
           <div className="space-y-2.5">
-            {memberCompletionToday.map(({ member, logged, total, pct }) => (
+            {memberCompletionToday.map(({ member, logged, total, pct, progName }) => (
               <div key={member.id} className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center text-xs font-bold text-orange-400 flex-shrink-0">
                   {member.initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{member.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-white truncate">{member.name}</p>
+                    {progName && (
+                      <span className="text-[10px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/25 px-1.5 py-0.5 rounded-full flex-shrink-0 truncate max-w-[120px]">
+                        {progName}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 h-1.5 bg-gray-700 rounded-full overflow-hidden">
                       <div
@@ -680,6 +703,8 @@ export default function CoachDashboard() {
 
   const gymId = currentUser?.gymId
   const gymWorkouts = state.workouts.filter(w => w.gymId === gymId)
+  // WODs are gym-wide workouts created directly by the coach (not deployed from a program)
+  const wodWorkouts = gymWorkouts.filter(w => !w.fromProgram)
   const gymUsers = state.users.filter(u => u.gymId === gymId)
   const gymLogs = state.workoutLogs.filter(l => l.gymId === gymId)
   const memberCount = gymUsers.filter(u => u.role === 'member').length
@@ -689,7 +714,7 @@ export default function CoachDashboard() {
       <div className="mb-5">
         <h1 className="text-2xl font-bold">{currentGym?.name ?? 'Dashboard'}</h1>
         <p className="text-gray-400 text-sm mt-0.5">
-          {gymWorkouts.length} workout{gymWorkouts.length !== 1 ? 's' : ''} scheduled · {memberCount} members
+          {wodWorkouts.length} WOD{wodWorkouts.length !== 1 ? 's' : ''} scheduled · {memberCount} members
         </p>
       </div>
 
@@ -716,7 +741,7 @@ export default function CoachDashboard() {
         <>
           <div className="mb-5">
             <Calendar
-              workouts={gymWorkouts}
+              workouts={wodWorkouts}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
             />
@@ -725,7 +750,7 @@ export default function CoachDashboard() {
           {selectedDate && (
             <DayDetail
               date={selectedDate}
-              workouts={gymWorkouts}
+              workouts={wodWorkouts}
               members={gymUsers}
               logs={gymLogs}
               onDelete={(id) => dispatch({ type: 'DELETE_WORKOUT', workoutId: id })}
