@@ -604,13 +604,13 @@ function OverviewTab({ gymWorkouts, gymUsers, gymLogs, state, currentUser }) {
             <CheckCircle2 className="w-4 h-4 text-orange-400" />
             <h3 className="font-bold text-white text-sm">Today's WOD Completion</h3>
           </div>
-          <span className="text-xs text-gray-600">{todayWorkouts.length} workout{todayWorkouts.length !== 1 ? 's' : ''} today</span>
+          <span className="text-xs text-gray-600">{todayWods.length} WOD{todayWods.length !== 1 ? 's' : ''} today</span>
         </div>
 
         {members.length === 0 ? (
           <p className="text-xs text-gray-600 text-center py-4">No members yet</p>
-        ) : todayWorkouts.length === 0 ? (
-          <p className="text-xs text-gray-600 text-center py-4">No workout posted for today</p>
+        ) : todayWods.length === 0 ? (
+          <p className="text-xs text-gray-600 text-center py-4">No WOD posted for today</p>
         ) : (
           <div className="space-y-2.5">
             {memberCompletionToday.map(({ member, logged, total, pct, progName }) => (
