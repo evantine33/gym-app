@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext'
 import {
   Dumbbell, LayoutDashboard, Users, Mail, UserCircle, ClipboardList,
   Layers, Copy, Check, UsersRound, TrendingUp, BookOpen, Bell, X,
-  Target, Menu, LogOut, NotebookPen, ShoppingBag, HeartPulse,
+  Target, Menu, LogOut, NotebookPen, ShoppingBag, HeartPulse, Sun, Moon,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function Layout({ children }) {
   const { currentUser, currentGym, dispatch, logout } = useApp()
@@ -47,6 +47,22 @@ export default function Layout({ children }) {
   if (!currentUser) return null
 
   const { state } = useApp()
+
+  // Sync theme class on <html> whenever theme state changes
+  const theme = state.theme || 'dark'
+  useEffect(() => {
+    const html = document.documentElement
+    if (theme === 'light') {
+      html.classList.add('light')
+    } else {
+      html.classList.remove('light')
+    }
+  }, [theme])
+
+  const toggleTheme = () => {
+    dispatch({ type: 'SET_THEME', theme: theme === 'dark' ? 'light' : 'dark' })
+  }
+
   const unreadDMs = state.directMessages.filter(
     dm => dm.toId === currentUser.id && !dm.read
   ).length
@@ -245,8 +261,18 @@ export default function Layout({ children }) {
           </div>
         )}
 
-        {/* Sign out */}
-        <div className="px-3 pb-4 border-t border-gray-700 pt-3">
+        {/* Theme toggle + Sign out */}
+        <div className="px-3 pb-4 border-t border-gray-700 pt-3 space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+          >
+            {theme === 'dark'
+              ? <Sun className="w-4 h-4" />
+              : <Moon className="w-4 h-4" />
+            }
+            {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+          </button>
           <button
             onClick={handleLogout}
             className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
@@ -386,6 +412,18 @@ export default function Layout({ children }) {
                 )}
               </button>
             )}
+
+            {/* Theme toggle */}
+            <button
+              onClick={() => { toggleTheme(); setMoreOpen(false) }}
+              className="w-full flex items-center gap-3 px-5 py-4 border-b border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800/60 transition-colors"
+            >
+              {theme === 'dark'
+                ? <Sun className="w-5 h-5" />
+                : <Moon className="w-5 h-5" />
+              }
+              <span className="text-sm font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+            </button>
 
             {/* Sign out */}
             <button

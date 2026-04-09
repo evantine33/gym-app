@@ -296,7 +296,7 @@ const loadState = () => {
 
 const getInitialState = () => {
   const saved = loadState()
-  if (saved) return { gyms: [], programs: [], notifications: [], benchmarkDefs: [], benchmarkEntries: [], habitDefs: [], habitLogs: [], journalEntries: [], programListings: [], purchases: [], ...saved }
+  if (saved) return { gyms: [], programs: [], notifications: [], benchmarkDefs: [], benchmarkEntries: [], habitDefs: [], habitLogs: [], journalEntries: [], programListings: [], purchases: [], healthEntries: [], progressPhotos: [], theme: 'dark', ...saved }
   return {
     currentUserId: null,
     gyms: [SEED_GYM],
@@ -316,6 +316,7 @@ const getInitialState = () => {
     purchases: [],
     healthEntries: [],
     progressPhotos: [],
+    theme: 'dark',
   }
 }
 
@@ -327,6 +328,9 @@ function reducer(state, action) {
 
     case 'LOGOUT':
       return { ...state, currentUserId: null }
+
+    case 'SET_THEME':
+      return { ...state, theme: action.theme }
 
     case 'REGISTER': {
       const validRoles = ['coach', 'staff', 'member', 'nonmember']
