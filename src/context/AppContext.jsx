@@ -8,6 +8,8 @@ import {
   insertWorkout, updateWorkout as sbUpdateWorkout, deleteWorkout as sbDeleteWorkout, getGymWorkouts,
   upsertWorkoutLog, getGymLogs,
   upsertHabitDef, deleteHabitDef, getUserHabitDefs, upsertHabitLog, deleteHabitLog, getUserHabitLogs,
+  upsertHealthEntry, deleteHealthEntry, getUserHealthEntries,
+  upsertProgressPhoto, deleteProgressPhoto, getUserProgressPhotos,
   subscribeToGymWorkouts, subscribeToGymLogs,
 } from '../lib/supabase'
 
@@ -312,6 +314,8 @@ const getInitialState = () => {
     journalEntries: [],
     programListings: [],
     purchases: [],
+    healthEntries: [],
+    progressPhotos: [],
   }
 }
 
@@ -801,6 +805,45 @@ function reducer(state, action) {
         journalEntries: (state.journalEntries || []).filter(e => e.id !== action.entryId),
       }
 
+    // ── Health & Body Metrics ──────────────────────────────────────────────
+    case 'ADD_HEALTH_ENTRY': {
+      const entry = {
+        id: action.id || ('hentry-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+        userId: state.currentUserId,
+        metric: action.metric,
+        value: action.value,
+        value2: action.value2 ?? null,
+        date: action.date,
+        notes: action.notes || '',
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, healthEntries: [...(state.healthEntries || []), entry] }
+    }
+
+    case 'DELETE_HEALTH_ENTRY':
+      return {
+        ...state,
+        healthEntries: (state.healthEntries || []).filter(e => e.id !== action.entryId),
+      }
+
+    case 'ADD_PROGRESS_PHOTO': {
+      const photo = {
+        id: action.id || ('photo-' + Date.now() + '-' + Math.random().toString(36).slice(2)),
+        userId: state.currentUserId,
+        date: action.date,
+        caption: action.caption || '',
+        dataUrl: action.dataUrl,
+        createdAt: new Date().toISOString(),
+      }
+      return { ...state, progressPhotos: [...(state.progressPhotos || []), photo] }
+    }
+
+    case 'DELETE_PROGRESS_PHOTO':
+      return {
+        ...state,
+        progressPhotos: (state.progressPhotos || []).filter(p => p.id !== action.photoId),
+      }
+
     // ── Supabase Hydration ────────────────────────────────────────────────
     case 'HYDRATE': {
       const p = action.profile
@@ -879,7 +922,28 @@ function reducer(state, action) {
         ...remoteHabitLogs,
       ]
 
-      return { ...state, users, gyms, workouts, workoutLogs, habitDefs, habitLogs, currentUserId: p.id }
+      // Merge this user's health entries
+      const remoteHealthEntries = (action.healthEntries || []).map(e => ({
+        id: e.id, userId: e.user_id, metric: e.metric,
+        value: e.value, value2: e.value2 ?? null,
+        date: e.date, notes: e.notes || '', createdAt: e.created_at,
+      }))
+      const healthEntries = [
+        ...(state.healthEntries || []).filter(e => e.userId !== p.id),
+        ...remoteHealthEntries,
+      ]
+
+      // Merge this user's progress photos
+      const remoteProgressPhotos = (action.progressPhotos || []).map(ph => ({
+        id: ph.id, userId: ph.user_id, date: ph.date,
+        caption: ph.caption || '', dataUrl: ph.data_url, createdAt: ph.created_at,
+      }))
+      const progressPhotos = [
+        ...(state.progressPhotos || []).filter(ph => ph.userId !== p.id),
+        ...remoteProgressPhotos,
+      ]
+
+      return { ...state, users, gyms, workouts, workoutLogs, habitDefs, habitLogs, healthEntries, progressPhotos, currentUserId: p.id }
     }
 
     case 'HYDRATE_USER': {
@@ -928,15 +992,19 @@ async function hydrateFromSupabase(userId, dispatch) {
     members = membersRes.data || []
   }
 
-  // Fetch this user's habits and habit logs (personal, not gym-scoped)
-  const [habitDefsRes, habitLogsRes] = await Promise.all([
+  // Fetch this user's personal data (habits, health, photos)
+  const [habitDefsRes, habitLogsRes, healthEntriesRes, progressPhotosRes] = await Promise.all([
     getUserHabitDefs(userId),
     getUserHabitLogs(userId),
+    getUserHealthEntries(userId),
+    getUserProgressPhotos(userId),
   ])
   const habitDefs = habitDefsRes.data || []
   const habitLogs = habitLogsRes.data || []
+  const healthEntries = healthEntriesRes.data || []
+  const progressPhotos = progressPhotosRes.data || []
 
-  dispatch({ type: 'HYDRATE', profile, gym, workouts, logs, members, habitDefs, habitLogs })
+  dispatch({ type: 'HYDRATE', profile, gym, workouts, logs, members, habitDefs, habitLogs, healthEntries, progressPhotos })
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -999,6 +1067,13 @@ export function AppProvider({ children }) {
     // Pre-generate habit def ID so reducer and Supabase use the same one
     if (a.type === 'ADD_HABIT_DEF' && !a.id) {
       a = { ...a, id: 'hdef-' + Date.now() }
+    }
+    // Pre-generate health entry / progress photo IDs
+    if (a.type === 'ADD_HEALTH_ENTRY' && !a.id) {
+      a = { ...a, id: 'hentry-' + Date.now() + '-' + Math.random().toString(36).slice(2) }
+    }
+    if (a.type === 'ADD_PROGRESS_PHOTO' && !a.id) {
+      a = { ...a, id: 'photo-' + Date.now() + '-' + Math.random().toString(36).slice(2) }
     }
 
     dispatch(a) // immediate local update
@@ -1076,6 +1151,32 @@ export function AppProvider({ children }) {
           }
           break
         }
+        case 'ADD_HEALTH_ENTRY':
+          await upsertHealthEntry({
+            id: a.id,
+            userId: s.currentUserId,
+            metric: a.metric,
+            value: a.value,
+            value2: a.value2 ?? null,
+            date: a.date,
+            notes: a.notes || '',
+          })
+          break
+        case 'DELETE_HEALTH_ENTRY':
+          await deleteHealthEntry(a.entryId)
+          break
+        case 'ADD_PROGRESS_PHOTO':
+          await upsertProgressPhoto({
+            id: a.id,
+            userId: s.currentUserId,
+            date: a.date,
+            caption: a.caption || '',
+            dataUrl: a.dataUrl,
+          })
+          break
+        case 'DELETE_PROGRESS_PHOTO':
+          await deleteProgressPhoto(a.photoId)
+          break
       }
     } catch (err) {
       console.error('Supabase sync error:', err)

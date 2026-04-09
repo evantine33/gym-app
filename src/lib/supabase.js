@@ -146,6 +146,46 @@ export async function getUserHabitLogs(userId) {
   return supabase.from('habit_logs').select('*').eq('user_id', userId)
 }
 
+// ─── Health Entries ───────────────────────────────────────────────────────────
+export async function upsertHealthEntry(entry) {
+  return supabase.from('health_entries').upsert({
+    id: entry.id,
+    user_id: entry.userId,
+    metric: entry.metric,
+    value: entry.value,
+    value2: entry.value2 ?? null,
+    date: entry.date,
+    notes: entry.notes || '',
+  }, { onConflict: 'id' })
+}
+
+export async function deleteHealthEntry(id) {
+  return supabase.from('health_entries').delete().eq('id', id)
+}
+
+export async function getUserHealthEntries(userId) {
+  return supabase.from('health_entries').select('*').eq('user_id', userId).order('date', { ascending: false })
+}
+
+// ─── Progress Photos ──────────────────────────────────────────────────────────
+export async function upsertProgressPhoto(photo) {
+  return supabase.from('progress_photos').upsert({
+    id: photo.id,
+    user_id: photo.userId,
+    date: photo.date,
+    caption: photo.caption || '',
+    data_url: photo.dataUrl,
+  }, { onConflict: 'id' })
+}
+
+export async function deleteProgressPhoto(id) {
+  return supabase.from('progress_photos').delete().eq('id', id)
+}
+
+export async function getUserProgressPhotos(userId) {
+  return supabase.from('progress_photos').select('*').eq('user_id', userId).order('date', { ascending: false })
+}
+
 // ─── Realtime Subscriptions ───────────────────────────────────────────────────
 export function subscribeToGymWorkouts(gymId, callback) {
   return supabase
